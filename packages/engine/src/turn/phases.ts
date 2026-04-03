@@ -22,6 +22,7 @@ import type {
 import { Phase, Step, MAX_HAND_SIZE } from "@magic-flux/types";
 import { drawCard } from "../zones/transfers.js";
 import { calculateCombatDamage, applyCombatDamage, hasFirstStrikeCreatures } from "../combat/damage.js";
+import { processStateBasedActionsLoop } from "../state-based/sba.js";
 
 const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
@@ -210,13 +211,44 @@ export function advancePhase(
     allEvents.push(...drawResult.events);
     // Grant priority to active player after draw
     updatedState = { ...updatedState, priorityPlayerId: updatedState.activePlayerId };
+  } else if (next.step === Step.DeclareBlockers) {
+    // Defending player gets priority to declare blockers
+    const activePlayers = updatedState.players.filter((p) => !p.hasLost);
+    const defendingPlayer = activePlayers.find((p) => p.id !== updatedState.activePlayerId);
+    updatedState = {
+      ...updatedState,
+      priorityPlayerId: defendingPlayer?.id ?? updatedState.activePlayerId,
+    };
   } else if (next.step === Step.CombatDamage) {
-    // Combat damage step: calculate and apply damage
+    // Combat damage step: calculate and apply damage.
+    // If first/double strike creatures exist, do first strike damage first,
+    // then run SBAs (killing creatures), then regular damage.
     if (updatedState.combatState) {
+      const hasFS = hasFirstStrikeCreatures(updatedState);
+
+      if (hasFS) {
+        // First strike damage sub-step
+        const fsAssignments = calculateCombatDamage(updatedState, true);
+        if (fsAssignments.length > 0) {
+          const fsResult = applyCombatDamage(updatedState, fsAssignments);
+          updatedState = fsResult.state;
+          allEvents.push(...fsResult.events);
+
+          // Run SBAs between first strike and regular damage
+          // (creatures killed by first strike won't deal regular damage)
+          const sbaResult = processStateBasedActionsLoop(updatedState);
+          updatedState = sbaResult.state;
+          allEvents.push(...sbaResult.events);
+        }
+      }
+
+      // Regular combat damage
       const assignments = calculateCombatDamage(updatedState, false);
-      const damageResult = applyCombatDamage(updatedState, assignments);
-      updatedState = damageResult.state;
-      allEvents.push(...damageResult.events);
+      if (assignments.length > 0) {
+        const damageResult = applyCombatDamage(updatedState, assignments);
+        updatedState = damageResult.state;
+        allEvents.push(...damageResult.events);
+      }
     }
     updatedState = { ...updatedState, priorityPlayerId: updatedState.activePlayerId };
   } else if (next.step === Step.EndOfCombat) {

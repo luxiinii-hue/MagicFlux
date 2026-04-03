@@ -5,5 +5,5 @@ export default defineWorkspace([
   'packages/engine',
   'packages/cards',
   // 'packages/client',  // uncomment when scaffolded
-  // 'packages/server',  // uncomment when scaffolded
+  'packages/server',
 ]);

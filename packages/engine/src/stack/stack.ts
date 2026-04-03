@@ -121,16 +121,17 @@ export function resolveTopOfStack(
   // Remove from stack
   newState = removeFromStack(newState, topItemId);
 
-  // If this was a spell, move the card to the graveyard
+  // If this was a spell, move the card to graveyard (or exile for flashback)
   if (item.isSpell && !item.isCopy) {
     const card = newState.cardInstances[item.sourceCardInstanceId];
     if (card && card.zone === ZoneType.Stack) {
-      const owner = card.owner;
+      const isFlashback = item.choices?.alternativeCostUsed === "flashback";
+      const destination = isFlashback ? "exile" : graveyardKey(card.owner);
       const moveResult = moveCard(
         newState,
         item.sourceCardInstanceId,
         "stack",
-        graveyardKey(owner),
+        destination,
         Date.now(),
       );
       newState = moveResult.state;

@@ -226,6 +226,10 @@ export function applyCombatDamage(
       const updatedCard: CardInstance = {
         ...card,
         damage: card.damage + assignment.amount,
+        // Mark deathtouch damage for SBA checking
+        ...(hasDeathtouch && assignment.amount > 0
+          ? { counters: { ...card.counters, deathtouchDamage: 1 } }
+          : {}),
       };
       currentState = {
         ...currentState,

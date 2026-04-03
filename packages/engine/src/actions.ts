@@ -339,7 +339,7 @@ function handleCastSpell(
   // Validate targets if provided
   const targets = action.targets ?? [];
   if (targets.length > 0) {
-    const targetCheck = validateTargetsOnCast(state, targets);
+    const targetCheck = validateTargetsOnCast(state, targets, playerId);
     if (!targetCheck.valid) {
       return fail("INVALID_TARGET", targetCheck.reason ?? "Invalid targets");
     }

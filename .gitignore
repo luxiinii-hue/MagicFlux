@@ -3,3 +3,7 @@ dist/
 *.tsbuildinfo
 .vite/
 data/
+
+# Local tooling / session config
+.claude/
+.superpowers/

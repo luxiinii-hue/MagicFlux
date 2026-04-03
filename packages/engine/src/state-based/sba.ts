@@ -106,7 +106,13 @@ export function processStateBasedActions(state: GameState): SBAResult {
 
     // Lethal damage (damage >= toughness)
     if (card.damage >= card.modifiedToughness) {
-      // Indestructible creatures don't die from damage
+      if (!cardHasKeyword(card, "indestructible")) {
+        shouldDestroy = true;
+      }
+    }
+
+    // Deathtouch: any damage from a deathtouch source is lethal
+    if (card.damage > 0 && card.counters["deathtouchDamage"]) {
       if (!cardHasKeyword(card, "indestructible")) {
         shouldDestroy = true;
       }

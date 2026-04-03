@@ -13,6 +13,7 @@ import type {
   CardInstance,
 } from "@magic-flux/types";
 import { ZoneType } from "@magic-flux/types";
+import { cardHasKeyword } from "../combat/keywords.js";
 
 export interface TargetValidationResult {
   allTargetsIllegal: boolean;
@@ -20,14 +21,22 @@ export interface TargetValidationResult {
 }
 
 /**
- * Check if a specific target is still legal at resolution time.
+ * Check if a specific target is still legal.
  *
  * A target is legal if:
- * - For card targets: the card still exists in a valid zone (battlefield
- *   for permanent targets, stack for spell targets, etc.)
+ * - For card targets: the card exists in a valid zone, and is not protected
+ *   by hexproof from the targeting player
  * - For player targets: the player hasn't lost
+ * - For stack items: the item is still on the stack
+ *
+ * @param controllerId The player who controls the spell/ability doing the targeting.
+ *   Used for hexproof check (hexproof only blocks opponents' targeting).
  */
-function isTargetLegal(state: GameState, target: ResolvedTarget): boolean {
+function isTargetLegal(
+  state: GameState,
+  target: ResolvedTarget,
+  controllerId?: string,
+): boolean {
   if (target.targetType === "player") {
     const player = state.players.find((p) => p.id === target.targetId);
     return !!player && !player.hasLost;
@@ -42,7 +51,16 @@ function isTargetLegal(state: GameState, target: ResolvedTarget): boolean {
   const card = state.cardInstances[target.targetId];
   if (!card) return false;
 
-  return card.zone === ZoneType.Battlefield || card.zone === ZoneType.Stack;
+  if (card.zone !== ZoneType.Battlefield && card.zone !== ZoneType.Stack) {
+    return false;
+  }
+
+  // Hexproof: can't be targeted by opponents' spells/abilities
+  if (controllerId && card.controller !== controllerId && cardHasKeyword(card, "hexproof")) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -54,7 +72,6 @@ export function validateTargetsOnResolution(
   item: StackItem,
 ): TargetValidationResult {
   if (item.targets.length === 0) {
-    // No targets — can't fizzle from targeting
     return { allTargetsIllegal: false, legalTargetIds: new Set() };
   }
 
@@ -62,7 +79,7 @@ export function validateTargetsOnResolution(
   let anyLegal = false;
 
   for (const target of item.targets) {
-    if (isTargetLegal(state, target)) {
+    if (isTargetLegal(state, target, item.controller)) {
       legalTargetIds.add(target.targetId);
       anyLegal = true;
     }
@@ -77,16 +94,19 @@ export function validateTargetsOnResolution(
 /**
  * Validate targets when casting a spell (before it goes on the stack).
  * At cast time, all chosen targets must be legal.
+ *
+ * @param controllerId The player casting the spell (for hexproof check).
  */
 export function validateTargetsOnCast(
   state: GameState,
   targets: readonly ResolvedTarget[],
+  controllerId?: string,
 ): { valid: boolean; reason?: string } {
   for (const target of targets) {
-    if (!isTargetLegal(state, target)) {
+    if (!isTargetLegal(state, target, controllerId)) {
       return {
         valid: false,
-        reason: `Target ${target.targetId} is not legal`,
+        reason: `Target ${target.targetId} is not a legal target`,
       };
     }
   }

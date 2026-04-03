@@ -82,5 +82,14 @@ export {
   getCreatureToughness,
 } from "./combat/keywords.js";
 
+// Equipment
+export { attachEquipment, detachEquipment } from "./combat/equipment.js";
+
+// Alternative costs
+export { canCastWithFlashback, exileFlashbackSpell } from "./alternative-costs.js";
+
+// Mulligan
+export { performMulligan, putCardsOnBottom } from "./mulligan.js";
+
 // RNG
 export { nextRandom, nextInt, shuffle } from "./rng.js";

@@ -16,6 +16,8 @@ import type {
   ManaPool,
   CardInstance,
   Player,
+  SpellAbility,
+  TokenDefinition,
 } from "@magic-flux/types";
 import { ZoneType } from "@magic-flux/types";
 import { moveCard, graveyardKey, drawCard } from "../zones/transfers.js";
@@ -142,8 +144,42 @@ function resolveEffect(ctx: ResolutionContext, effect: Effect): void {
     case "discardCards":
       resolveDiscardCards(ctx, effect);
       break;
+    case "createToken":
+      resolveCreateToken(ctx, effect);
+      break;
+    case "sacrifice":
+      resolveSacrifice(ctx, effect);
+      break;
+    case "tap":
+      resolveTap(ctx, effect);
+      break;
+    case "untap":
+      resolveUntap(ctx, effect);
+      break;
+    case "addCounters":
+      resolveAddCounters(ctx, effect);
+      break;
+    case "removeCounters":
+      resolveRemoveCounters(ctx, effect);
+      break;
+    case "grantAbility":
+      resolveGrantAbility(ctx, effect);
+      break;
+    case "conditional":
+      // TODO: evaluate condition properly
+      for (const sub of effect.thenEffects) {
+        resolveEffect(ctx, sub);
+      }
+      break;
+    case "forEach":
+    case "playerChoice":
+    case "search":
+    case "preventDamage":
+    case "copy":
+    case "custom":
+      // These complex effects are handled in later tiers
+      break;
     default:
-      // Unimplemented effect types are silently skipped for now
       break;
   }
 }
@@ -470,7 +506,6 @@ function resolveDiscardCards(
   const playerId = resolvePlayerId(ctx, effect.player);
   if (!playerId) return;
 
-  // For Phase 2, random discard (no player choice)
   const count = resolveNumber(effect.count, ctx);
   const handZoneKey = `player:${playerId}:hand`;
   const hand = ctx.state.zones[handZoneKey];
@@ -483,5 +518,297 @@ function resolveDiscardCards(
     const moveResult = moveCard(ctx.state, cardId, handZoneKey, graveyardKey(playerId), Date.now());
     ctx.state = moveResult.state;
     ctx.events.push(...moveResult.events);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tier 1 effect handlers: createToken, sacrifice, tap/untap, counters
+// ---------------------------------------------------------------------------
+
+let tokenCounter = 0;
+
+function resolveCreateToken(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "createToken" }>,
+): void {
+  const controllerId = resolvePlayerId(ctx, effect.controller);
+  if (!controllerId) return;
+
+  const count = resolveNumber(effect.count, ctx);
+  const tokenDef = effect.token;
+
+  for (let i = 0; i < count; i++) {
+    const tokenId = `token_${++tokenCounter}_${Date.now()}`;
+
+    const tokenInstance: CardInstance = {
+      instanceId: tokenId,
+      cardDataId: `token:${tokenDef.name}`,
+      owner: controllerId,
+      controller: controllerId,
+      zone: ZoneType.Battlefield,
+      zoneOwnerId: null,
+      tapped: false,
+      flipped: false,
+      faceDown: false,
+      transformedOrBack: false,
+      phasedOut: false,
+      summoningSickness: true,
+      damage: 0,
+      counters: {},
+      attachedTo: null,
+      attachments: [],
+      abilities: [...tokenDef.abilities],
+      modifiedPower: tokenDef.power,
+      modifiedToughness: tokenDef.toughness,
+      currentLoyalty: null,
+      castingChoices: null,
+      linkedEffects: {},
+    };
+
+    // Add to card instances and battlefield
+    const bf = ctx.state.zones["battlefield"];
+    ctx.state = {
+      ...ctx.state,
+      cardInstances: { ...ctx.state.cardInstances, [tokenId]: tokenInstance },
+      zones: {
+        ...ctx.state.zones,
+        battlefield: {
+          ...bf,
+          cardInstanceIds: [tokenId, ...bf.cardInstanceIds],
+        },
+      },
+    };
+
+    ctx.events.push({
+      type: "tokenCreated",
+      cardInstanceId: tokenId,
+      timestamp: Date.now(),
+    });
+    ctx.events.push({
+      type: "cardEnteredZone",
+      cardInstanceId: tokenId,
+      toZone: ZoneType.Battlefield,
+      fromZone: null,
+      timestamp: Date.now(),
+    });
+  }
+}
+
+function resolveSacrifice(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "sacrifice" }>,
+): void {
+  const playerId = resolvePlayerId(ctx, effect.player);
+  if (!playerId) return;
+
+  const count = resolveNumber(effect.count, ctx);
+  const bf = ctx.state.zones["battlefield"];
+  if (!bf) return;
+
+  // Find permanents controlled by the player matching the filter
+  const candidates = bf.cardInstanceIds.filter((id) => {
+    const card = ctx.state.cardInstances[id];
+    if (!card || card.controller !== playerId) return false;
+    // TODO: apply effect.filter for type-specific sacrifice
+    return true;
+  });
+
+  const toSacrifice = Math.min(count, candidates.length);
+  for (let i = 0; i < toSacrifice; i++) {
+    const cardId = candidates[i];
+    const card = ctx.state.cardInstances[cardId];
+    if (!card || card.zone !== ZoneType.Battlefield) continue;
+
+    const moveResult = moveCard(
+      ctx.state, cardId, "battlefield", graveyardKey(card.owner), Date.now(),
+    );
+    ctx.state = moveResult.state;
+    ctx.events.push(...moveResult.events);
+    ctx.events.push({
+      type: "cardDestroyed",
+      cardInstanceId: cardId,
+      timestamp: Date.now(),
+    });
+  }
+}
+
+function resolveTap(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "tap" }>,
+): void {
+  const targetId = resolveTargetId(ctx, effect.target);
+  if (!targetId) return;
+
+  const card = ctx.state.cardInstances[targetId];
+  if (!card || card.zone !== ZoneType.Battlefield || card.tapped) return;
+
+  ctx.state = {
+    ...ctx.state,
+    cardInstances: {
+      ...ctx.state.cardInstances,
+      [targetId]: { ...card, tapped: true },
+    },
+  };
+  ctx.events.push({
+    type: "cardTapped",
+    cardInstanceId: targetId,
+    timestamp: Date.now(),
+  });
+}
+
+function resolveUntap(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "untap" }>,
+): void {
+  const targetId = resolveTargetId(ctx, effect.target);
+  if (!targetId) return;
+
+  const card = ctx.state.cardInstances[targetId];
+  if (!card || card.zone !== ZoneType.Battlefield || !card.tapped) return;
+
+  ctx.state = {
+    ...ctx.state,
+    cardInstances: {
+      ...ctx.state.cardInstances,
+      [targetId]: { ...card, tapped: false },
+    },
+  };
+  ctx.events.push({
+    type: "cardUntapped",
+    cardInstanceId: targetId,
+    timestamp: Date.now(),
+  });
+}
+
+function resolveAddCounters(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "addCounters" }>,
+): void {
+  const targetId = resolveTargetId(ctx, effect.target);
+  if (!targetId) return;
+
+  const card = ctx.state.cardInstances[targetId];
+  if (!card) return;
+
+  const count = resolveNumber(effect.count, ctx);
+  const currentCount = card.counters[effect.counterType] ?? 0;
+  const newCount = currentCount + count;
+
+  const updatedCard: CardInstance = {
+    ...card,
+    counters: { ...card.counters, [effect.counterType]: newCount },
+  };
+
+  // +1/+1 counters modify P/T
+  let finalCard = updatedCard;
+  if (effect.counterType === "+1/+1" && card.modifiedPower !== null) {
+    finalCard = {
+      ...updatedCard,
+      modifiedPower: (card.modifiedPower ?? 0) + count,
+      modifiedToughness: (card.modifiedToughness ?? 0) + count,
+    };
+  }
+
+  ctx.state = {
+    ...ctx.state,
+    cardInstances: { ...ctx.state.cardInstances, [targetId]: finalCard },
+  };
+  ctx.events.push({
+    type: "counterAdded",
+    cardInstanceId: targetId,
+    counterType: effect.counterType,
+    newCount,
+    timestamp: Date.now(),
+  });
+}
+
+function resolveRemoveCounters(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "removeCounters" }>,
+): void {
+  const targetId = resolveTargetId(ctx, effect.target);
+  if (!targetId) return;
+
+  const card = ctx.state.cardInstances[targetId];
+  if (!card) return;
+
+  const count = resolveNumber(effect.count, ctx);
+  const currentCount = card.counters[effect.counterType] ?? 0;
+  const newCount = Math.max(0, currentCount - count);
+
+  const updatedCard: CardInstance = {
+    ...card,
+    counters: { ...card.counters, [effect.counterType]: newCount },
+  };
+
+  // Removing +1/+1 counters modifies P/T
+  let finalRemoveCard = updatedCard;
+  if (effect.counterType === "+1/+1" && card.modifiedPower !== null) {
+    const removed = Math.min(count, currentCount);
+    finalRemoveCard = {
+      ...updatedCard,
+      modifiedPower: (card.modifiedPower ?? 0) - removed,
+      modifiedToughness: (card.modifiedToughness ?? 0) - removed,
+    };
+  }
+
+  ctx.state = {
+    ...ctx.state,
+    cardInstances: { ...ctx.state.cardInstances, [targetId]: finalRemoveCard },
+  };
+  ctx.events.push({
+    type: "counterRemoved",
+    cardInstanceId: targetId,
+    counterType: effect.counterType,
+    newCount,
+    timestamp: Date.now(),
+  });
+}
+
+function resolveGrantAbility(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "grantAbility" }>,
+): void {
+  const targetId = resolveTargetId(ctx, effect.target);
+  if (!targetId) return;
+
+  const card = ctx.state.cardInstances[targetId];
+  if (!card || card.zone !== ZoneType.Battlefield) return;
+
+  // Add the ability to the creature's abilities
+  const grantedAbility: SpellAbility = {
+    ...effect.ability,
+    sourceCardInstanceId: targetId,
+  };
+
+  const updatedCard: CardInstance = {
+    ...card,
+    abilities: [...card.abilities, grantedAbility],
+  };
+
+  ctx.state = {
+    ...ctx.state,
+    cardInstances: { ...ctx.state.cardInstances, [targetId]: updatedCard },
+  };
+
+  // For "until end of turn", track via continuous effect for cleanup
+  if (effect.duration === "endOfTurn") {
+    ctx.state = {
+      ...ctx.state,
+      continuousEffects: [
+        ...ctx.state.continuousEffects,
+        {
+          id: `grant_${Date.now()}`,
+          sourceCardInstanceId: ctx.item.sourceCardInstanceId,
+          effect: { grantedAbilityId: grantedAbility.id, targetId },
+          affectedFilter: {},
+          duration: "endOfTurn",
+          layer: 6,
+          subLayer: null,
+          timestamp: Date.now(),
+          dependsOn: [],
+        },
+      ],
+    };
   }
 }
