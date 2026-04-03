@@ -1,0 +1,42 @@
+.indicator {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: #252540;
+  border-radius: 6px;
+}
+
+.header {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+}
+
+.track {
+  display: flex;
+  gap: 2px;
+}
+
+.phase {
+  flex: 1;
+  padding: 4px 2px;
+  text-align: center;
+  font-size: 10px;
+  background: #333355;
+  border-radius: 3px;
+  color: #777;
+  transition: background 0.2s, color 0.2s;
+}
+
+.phaseActive {
+  background: #4060c0;
+  color: #fff;
+  font-weight: bold;
+}
+
+.step {
+  font-size: 10px;
+  color: #aaa;
+  text-align: center;
+}

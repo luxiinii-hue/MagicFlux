@@ -1,0 +1,32 @@
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: #252540;
+  border-radius: 6px;
+  max-height: 250px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.header {
+  font-size: 11px;
+  font-weight: bold;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.entry {
+  color: #bbb;
+  padding: 1px 0;
+  border-bottom: 1px solid #333350;
+}
+
+.empty {
+  color: #555;
+  text-align: center;
+  padding: 8px;
+}

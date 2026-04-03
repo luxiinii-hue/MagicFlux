@@ -1,0 +1,28 @@
+.pool {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.mana {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: bold;
+  color: #000;
+}
+
+.W { background: #f9fae5; }
+.U { background: #a4d4e4; }
+.B { background: #b3a5a1; }
+.R { background: #e49977; }
+.G { background: #9bd3ae; }
+.C { background: #c8c8c8; }
+
+.empty {
+  opacity: 0.3;
+}

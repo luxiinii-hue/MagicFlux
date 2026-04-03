@@ -1,0 +1,47 @@
+.panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #252540;
+  border-radius: 6px;
+  border: 1px solid #333355;
+}
+
+.active {
+  border-color: #f0c040;
+}
+
+.hasPriority {
+  background: #2a2a50;
+  border-color: #4080f0;
+}
+
+.name {
+  font-weight: bold;
+  font-size: 14px;
+  min-width: 80px;
+}
+
+.life {
+  font-size: 22px;
+  font-weight: bold;
+  color: #e0e0e0;
+  min-width: 40px;
+  text-align: center;
+}
+
+.info {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #999;
+}
+
+.poison {
+  color: #90ee90;
+}
+
+.libraryCount {
+  color: #888;
+}

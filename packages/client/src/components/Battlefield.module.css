@@ -1,0 +1,11 @@
+.battlefield {
+  padding: 8px;
+  min-height: 120px;
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
