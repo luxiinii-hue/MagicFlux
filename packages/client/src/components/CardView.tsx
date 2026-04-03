@@ -8,7 +8,15 @@ interface CardViewProps {
   readonly instance: CardInstance;
   readonly selected?: boolean;
   readonly highlighted?: boolean;
+  readonly castable?: boolean;
+  readonly playable?: boolean;
+  readonly attacking?: boolean;
+  readonly eligible?: boolean;
+  readonly dimmed?: boolean;
   readonly onClick?: () => void;
+  readonly onDragStart?: (e: React.DragEvent) => void;
+  readonly onDragEnd?: (e: React.DragEvent) => void;
+  readonly draggable?: boolean;
 }
 
 export const CardView: FC<CardViewProps> = ({
@@ -16,7 +24,15 @@ export const CardView: FC<CardViewProps> = ({
   instance,
   selected = false,
   highlighted = false,
+  castable = false,
+  playable = false,
+  attacking = false,
+  eligible = false,
+  dimmed = false,
   onClick,
+  onDragStart,
+  onDragEnd,
+  draggable = false,
 }) => {
   const imageUrl = getCardImageUrl(cardData.imageUris);
 
@@ -25,13 +41,26 @@ export const CardView: FC<CardViewProps> = ({
     instance.tapped ? styles.tapped : '',
     selected ? styles.selected : '',
     highlighted ? styles.highlighted : '',
+    castable ? styles.castable : '',
+    playable ? styles.playable : '',
+    attacking ? styles.attacking : '',
+    eligible ? styles.eligible : '',
+    dimmed ? styles.dimmed : '',
   ].filter(Boolean).join(' ');
 
   const countersEntries = Object.entries(instance.counters);
   const isCreature = instance.modifiedPower !== null && instance.modifiedToughness !== null;
 
   return (
-    <div className={classNames} onClick={onClick} role="button" tabIndex={0}>
+    <div
+      className={classNames}
+      onClick={onClick}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      draggable={draggable}
+      role="button"
+      tabIndex={0}
+    >
       <img
         className={styles.image}
         src={imageUrl}

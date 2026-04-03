@@ -361,7 +361,7 @@ export class MockConnection implements GameConnection {
     const gyKey = `player:${ownerId}:graveyard`;
     const gy = zones[gyKey];
     if (gy && 'cardInstanceIds' in gy) {
-      zones[gyKey] = { ...gy, cardInstanceIds: [...gy.cardInstanceIds, instanceId] } as Zone;
+      zones[gyKey] = { ...gy, cardInstanceIds: [...(gy.cardInstanceIds ?? []), instanceId] } as Zone;
     }
     this.state = { ...this.state, zones, cardInstances };
   }

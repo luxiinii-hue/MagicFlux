@@ -1,6 +1,7 @@
 import type { FC } from 'react';
-import type { CardData, CardInstance } from '@magic-flux/types';
+import type { CardData, CardInstance, PlayerAction } from '@magic-flux/types';
 import { CardView } from './CardView';
+import { isCastableCard, isPlayableLand } from '../interaction/targeting';
 import styles from './Hand.module.css';
 
 interface HandProps {
@@ -9,6 +10,7 @@ interface HandProps {
   readonly isOwner: boolean;
   readonly cardCount: number;
   readonly selectedCards?: readonly string[];
+  readonly legalActions?: readonly PlayerAction[];
   readonly onCardClick: (instanceId: string) => void;
 }
 
@@ -18,6 +20,7 @@ export const Hand: FC<HandProps> = ({
   isOwner,
   cardCount,
   selectedCards = [],
+  legalActions = [],
   onCardClick,
 }) => {
   if (!isOwner || !cards) {
@@ -40,6 +43,8 @@ export const Hand: FC<HandProps> = ({
               cardData={data}
               instance={card}
               selected={selectedCards.includes(card.instanceId)}
+              castable={isCastableCard(card.instanceId, legalActions)}
+              playable={isPlayableLand(card.instanceId, legalActions)}
               onClick={() => onCardClick(card.instanceId)}
             />
           );

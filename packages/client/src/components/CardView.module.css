@@ -74,3 +74,32 @@
   font-weight: bold;
   white-space: nowrap;
 }
+
+.castable {
+  box-shadow: 0 2px 8px rgba(100, 180, 255, 0.4);
+  border-bottom: 2px solid rgba(100, 180, 255, 0.6);
+}
+
+.playable {
+  box-shadow: 0 2px 8px rgba(100, 255, 100, 0.4);
+  border-bottom: 2px solid rgba(100, 255, 100, 0.6);
+}
+
+.attacking {
+  transform: translateY(-20px);
+  box-shadow: 0 0 0 3px #f0c040, 0 0 16px rgba(240, 192, 64, 0.5);
+}
+
+.eligible {
+  animation: eligiblePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes eligiblePulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(100, 255, 100, 0.2); }
+  50% { box-shadow: 0 0 0 3px rgba(100, 255, 100, 0.5); }
+}
+
+.dimmed {
+  opacity: 0.4;
+  pointer-events: none;
+}

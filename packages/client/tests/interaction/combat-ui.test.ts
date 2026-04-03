@@ -56,8 +56,8 @@ describe('getAttackerIds', () => {
   it('should extract keys from combat state', () => {
     const combatState: CombatState = {
       attackers: {
-        'angel-1': { attackTarget: 'player-2', blocked: false, blockerOrder: [] },
-        'elf-1': { attackTarget: 'player-2', blocked: true, blockerOrder: ['wall-1'] },
+        'angel-1': { attackTarget: 'player-2', blocked: false, blockers: [], dealtFirstStrikeDamage: false },
+        'elf-1': { attackTarget: 'player-2', blocked: true, blockers: ['wall-1'], dealtFirstStrikeDamage: false },
       },
       blockers: {
         'wall-1': { blocking: ['elf-1'] },

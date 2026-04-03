@@ -1,9 +1,10 @@
 import type { FC } from 'react';
-import type { CardData, CardInstance, ClientGameState, ClientHandZone, ClientLibraryZone } from '@magic-flux/types';
+import type { CardData, CardInstance, ClientGameState, ClientHandZone, ClientLibraryZone, PlayerAction } from '@magic-flux/types';
 import { ZoneType } from '@magic-flux/types';
 import { PlayerPanel } from './PlayerPanel';
 import { Battlefield } from './Battlefield';
 import { Hand } from './Hand';
+import { isCastableCard, isPlayableLand } from '../interaction/targeting';
 import styles from './GameBoard.module.css';
 
 interface GameBoardProps {
@@ -12,6 +13,7 @@ interface GameBoardProps {
   readonly viewingPlayerId: string;
   readonly selectedCards: readonly string[];
   readonly highlightedCards?: readonly string[];
+  readonly legalActions?: readonly PlayerAction[];
   readonly onCardClick: (instanceId: string) => void;
 }
 
@@ -59,6 +61,7 @@ export const GameBoard: FC<GameBoardProps> = ({
   viewingPlayerId,
   selectedCards,
   highlightedCards = [],
+  legalActions = [],
   onCardClick,
 }) => {
   const viewingPlayer = gameState.players.find((p) => p.id === viewingPlayerId);
@@ -125,6 +128,7 @@ export const GameBoard: FC<GameBoardProps> = ({
               isOwner
               cardCount={hand.cardCount}
               selectedCards={selectedCards}
+              legalActions={legalActions}
               onCardClick={onCardClick}
             />
           </div>

@@ -51,7 +51,7 @@ export function getEligibleAttackerIds(
   playerId: string,
 ): string[] {
   const battlefield = state.zones['battlefield'];
-  if (!battlefield || !('cardInstanceIds' in battlefield)) {
+  if (!battlefield || !('cardInstanceIds' in battlefield) || !battlefield.cardInstanceIds) {
     return [];
   }
 
@@ -78,7 +78,7 @@ export function getEligibleBlockerIds(
   playerId: string,
 ): string[] {
   const battlefield = state.zones['battlefield'];
-  if (!battlefield || !('cardInstanceIds' in battlefield)) {
+  if (!battlefield || !('cardInstanceIds' in battlefield) || !battlefield.cardInstanceIds) {
     return [];
   }
 
