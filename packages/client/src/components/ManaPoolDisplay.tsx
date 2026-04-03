@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import type { ManaPool, ManaColor } from '@magic-flux/types';
+import { ManaSymbol } from './ManaSymbol';
 import styles from './ManaPoolDisplay.module.css';
 
 interface ManaPoolDisplayProps {
@@ -12,13 +13,16 @@ export const ManaPoolDisplay: FC<ManaPoolDisplayProps> = ({ pool }) => {
   return (
     <div className={styles.pool}>
       {MANA_COLORS.map((color) => (
-        <span
+        <div
           key={color}
           data-testid={`mana-${color}`}
-          className={`${styles.mana} ${styles[color]} ${pool[color] === 0 ? styles.empty : ''}`}
+          className={styles.manaSlot}
         >
-          {pool[color]}
-        </span>
+          <ManaSymbol color={color} size={22} faded={pool[color] === 0} />
+          {pool[color] > 0 && (
+            <span className={styles.count}>{pool[color]}</span>
+          )}
+        </div>
       ))}
     </div>
   );

@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { Phase, Step } from '@magic-flux/types';
+import { PhaseIcon } from './PhaseIcon';
 import styles from './PhaseIndicator.module.css';
 
 interface PhaseIndicatorProps {
@@ -43,15 +44,19 @@ export const PhaseIndicator: FC<PhaseIndicatorProps> = ({
         Turn {turnNumber} — {activePlayerName}
       </div>
       <div className={styles.track}>
-        {PHASE_LABELS.map(({ phase: p, label }) => (
-          <div
-            key={p}
-            className={`${styles.phase} ${p === phase ? styles.phaseActive : ''}`}
-            data-active={p === phase ? 'true' : 'false'}
-          >
-            {label}
-          </div>
-        ))}
+        {PHASE_LABELS.map(({ phase: p, label }) => {
+          const isActive = p === phase;
+          return (
+            <div
+              key={p}
+              className={`${styles.phase} ${isActive ? styles.phaseActive : ''}`}
+              data-active={isActive ? 'true' : 'false'}
+            >
+              <PhaseIcon phase={p} active={isActive} size={14} />
+              <span>{label}</span>
+            </div>
+          );
+        })}
       </div>
       {step && <div className={styles.step}>{STEP_LABELS[step] ?? step}</div>}
     </div>

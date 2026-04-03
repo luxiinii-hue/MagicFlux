@@ -23,12 +23,22 @@
   min-width: 80px;
 }
 
+.lifeDisplay {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 48px;
+}
+
 .life {
   font-size: 22px;
   font-weight: bold;
   color: #e0e0e0;
-  min-width: 40px;
-  text-align: center;
+  line-height: 1;
+}
+
+.lifeCritical {
+  color: #ff6060;
 }
 
 .info {
@@ -44,4 +54,9 @@
 
 .libraryCount {
   color: #888;
+}
+
+@keyframes lifePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
 }

@@ -19,9 +19,12 @@ describe('GameBoard', () => {
     render(
       <GameBoard gameState={state} cardDataMap={MOCK_CARD_DATA_MAP} viewingPlayerId={viewingPlayerId} selectedCards={[]} onCardClick={() => {}} />
     );
-    const images = screen.getAllByRole('img');
+    // Count card images specifically (img tags with card name alts), not SVG icons
+    const cardImages = screen.getAllByRole('img').filter(
+      (el) => el.tagName === 'IMG'
+    );
     // 3 on p1 battlefield + 3 on p2 battlefield + 2 in p1 hand = 8
-    expect(images.length).toBe(8);
+    expect(cardImages.length).toBe(8);
   });
 
   it('should show opponent hand as card count', () => {

@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import type { Player } from '@magic-flux/types';
 import { ManaPoolDisplay } from './ManaPoolDisplay';
+import { LifeIcon } from './LifeIcon';
 import styles from './PlayerPanel.module.css';
 
 interface PlayerPanelProps {
@@ -22,10 +23,17 @@ export const PlayerPanel: FC<PlayerPanelProps> = ({
     hasPriority ? styles.hasPriority : '',
   ].filter(Boolean).join(' ');
 
+  const isCritical = player.life <= 5;
+
   return (
     <div className={classNames}>
       <span className={styles.name}>{player.name}</span>
-      <span className={styles.life}>{player.life}</span>
+      <div className={styles.lifeDisplay}>
+        <LifeIcon size={14} critical={isCritical} />
+        <span className={`${styles.life} ${isCritical ? styles.lifeCritical : ''}`}>
+          {player.life}
+        </span>
+      </div>
       <ManaPoolDisplay pool={player.manaPool} />
       <div className={styles.info}>
         <span className={styles.libraryCount}>Lib: {libraryCount}</span>
