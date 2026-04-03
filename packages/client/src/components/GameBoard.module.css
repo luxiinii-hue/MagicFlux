@@ -1,0 +1,33 @@
+.board {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 4px;
+}
+
+.opponentSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.playerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.battlefieldSection {
+  flex: 1;
+  border: 1px solid #2a2a45;
+  border-radius: 4px;
+  background: #1a1a30;
+}
+
+.battlefieldLabel {
+  font-size: 10px;
+  color: #555;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
