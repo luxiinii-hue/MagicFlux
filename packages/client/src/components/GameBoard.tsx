@@ -17,7 +17,7 @@ interface GameBoardProps {
 
 function getBattlefieldCards(state: ClientGameState, playerId: string): CardInstance[] {
   const bfZone = state.zones['battlefield'];
-  if (!bfZone || !('cardInstanceIds' in bfZone)) return [];
+  if (!bfZone || !('cardInstanceIds' in bfZone) || !bfZone.cardInstanceIds) return [];
   return bfZone.cardInstanceIds
     .map((id) => state.cardInstances[id])
     .filter((c): c is CardInstance => c !== undefined && c.controller === playerId);
