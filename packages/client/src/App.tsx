@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { FC } from 'react';
 import { useGameStore } from './state/game-store';
 import { MockConnection } from './state/mock-connection';
+import { WebSocketConnection } from './state/websocket-connection';
 import { MOCK_CARD_DATA_MAP } from './mocks/mock-state';
 import { AnimationProvider } from './animation/AnimationProvider';
 import { AnimationOverlay } from './animation/AnimationOverlay';
@@ -11,8 +12,14 @@ import { StackDisplay } from './components/StackDisplay';
 import { GameLog } from './components/GameLog';
 import { PriorityBar } from './components/PriorityBar';
 import { SettingsPanel } from './components/SettingsPanel';
+import { Lobby } from './components/Lobby';
 import { isPlayableLand, isCastableCard } from './interaction/targeting';
+import type { GameConnection, LobbyConnection } from './state/connection';
 import styles from './App.module.css';
+
+type AppScreen = 'lobby' | 'game';
+
+const SERVER_URL = 'ws://localhost:3001';
 
 export const App: FC = () => {
   const gameState = useGameStore((s) => s.gameState);
@@ -35,26 +42,70 @@ export const App: FC = () => {
   const selectCard = useGameStore((s) => s.selectCard);
   const deselectCard = useGameStore((s) => s.deselectCard);
 
+  const [screen, setScreen] = useState<AppScreen>('lobby');
   const [showSettings, setShowSettings] = useState(false);
+  const [wsConn, setWsConn] = useState<WebSocketConnection | null>(null);
+  const [validationErrors, setValidationErrors] = useState<readonly { message: string }[]>([]);
+  const [lobbyGameId, setLobbyGameId] = useState<string | null>(null);
 
-  // Initialize MockConnection
-  useEffect(() => {
-    const conn = new MockConnection();
+  // Wire callbacks shared by both connection types
+  const wireGameCallbacks = useCallback((conn: GameConnection) => {
     conn.onStateUpdate((state) => {
       setGameState(state);
-      setViewingPlayerId(state.players[0].id);
+      if (!viewingPlayerId) {
+        setViewingPlayerId(state.players[0]?.id ?? null);
+      }
     });
-    conn.onLegalActions((actions) => setLegalActions(actions));
+    conn.onLegalActions((actions) => setLegalActions([...actions]));
     conn.onEvent((event, message) => addLogEntry(event, message));
     conn.onPrompt(() => {});
     conn.onError((code, msg) => console.error(`Game error: ${code} - ${msg}`));
+    if (conn.onGameOver) {
+      conn.onGameOver((winners, losers, reason) => {
+        addLogEntry(
+          { type: 'gameOver', winnerIds: winners, timestamp: Date.now() } as any,
+          `Game Over: ${reason}`
+        );
+      });
+    }
+  }, [setGameState, setLegalActions, addLogEntry, setViewingPlayerId, viewingPlayerId]);
 
-    setConnection(conn);
-    setConnectionStatus('mock');
+  // Initialize WebSocket connection on mount (for lobby)
+  useEffect(() => {
+    const conn = new WebSocketConnection({ url: SERVER_URL });
+    conn.onStatusChange((status) => {
+      setConnectionStatus(status === 'connected' ? 'connected' : status === 'connecting' ? 'connecting' : 'disconnected');
+    });
+    conn.onDeckValidation((valid, errors) => {
+      setValidationErrors(valid ? [] : errors);
+    });
+    conn.onGameCreated((gameId) => {
+      setLobbyGameId(gameId);
+    });
+    conn.onGameStarting((gameId, players) => {
+      // Game is starting — wire game callbacks and switch to game screen
+      wireGameCallbacks(conn);
+      setConnection(conn);
+      setViewingPlayerId(players[0]?.id ?? null);
+      setScreen('game');
+    });
+    setWsConn(conn);
     conn.connect();
 
     return () => conn.disconnect();
-  }, [setGameState, setLegalActions, addLogEntry, setConnectionStatus, setViewingPlayerId, setConnection]);
+  }, [wireGameCallbacks, setConnectionStatus, setConnection, setViewingPlayerId]);
+
+  // Start mock game
+  const handleStartMock = useCallback(() => {
+    if (wsConn) wsConn.disconnect();
+
+    const mock = new MockConnection();
+    wireGameCallbacks(mock);
+    setConnection(mock);
+    setConnectionStatus('mock');
+    mock.connect();
+    setScreen('game');
+  }, [wsConn, wireGameCallbacks, setConnection, setConnectionStatus]);
 
   // Escape key cancels current interaction
   useEffect(() => {
@@ -66,6 +117,26 @@ export const App: FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [interaction.mode, dispatchInteraction]);
+
+  // ---------------------------------------------------------------------------
+  // Lobby screen
+  // ---------------------------------------------------------------------------
+
+  if (screen === 'lobby') {
+    return (
+      <Lobby
+        connection={wsConn as unknown as LobbyConnection ?? { createGame: () => {}, joinGame: () => {}, leaveGame: () => {}, listGames: () => {}, onGameCreated: () => {}, onGameStarting: () => {}, onGameList: () => {}, onDeckValidation: () => {} }}
+        onStartMock={handleStartMock}
+        connectionStatus={connectionStatus}
+        validationErrors={validationErrors}
+        gameId={lobbyGameId}
+      />
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Game screen
+  // ---------------------------------------------------------------------------
 
   if (!gameState || !viewingPlayerId) {
     return <div className={styles.loading}>Loading game...</div>;
@@ -88,12 +159,10 @@ export const App: FC = () => {
     .map((id) => gameState.stackItems[id])
     .filter((item): item is NonNullable<typeof item> => item !== undefined);
 
-  // Card click handler — context-aware based on interaction mode
   const handleCardClick = (instanceId: string) => {
     const card = gameState.cardInstances[instanceId];
     if (!card) return;
 
-    // In idle mode: check if clicking a card in hand to play/cast
     if (interaction.mode === 'idle' && card.zone === 'Hand' && card.controller === viewingPlayerId) {
       if (isPlayableLand(instanceId, legalActions)) {
         sendAction({ type: 'playLand', cardInstanceId: instanceId });
@@ -105,7 +174,6 @@ export const App: FC = () => {
       }
     }
 
-    // In idle mode: check if clicking a land on battlefield to tap for mana
     if (interaction.mode === 'idle' && card.zone === 'Battlefield' && card.controller === viewingPlayerId && !card.tapped) {
       const tapAction = legalActions.find(
         (a) => a.type === 'activateAbility' && a.cardInstanceId === instanceId
@@ -116,7 +184,6 @@ export const App: FC = () => {
       }
     }
 
-    // Fallback: toggle selection
     if (selectedCards.includes(instanceId)) {
       deselectCard(instanceId);
     } else {
@@ -128,7 +195,6 @@ export const App: FC = () => {
     sendAction({ type: 'passPriority' });
   };
 
-  // Right-click cancels interaction
   const handleContextMenu = (e: React.MouseEvent) => {
     if (interaction.mode !== 'idle') {
       e.preventDefault();
@@ -154,6 +220,12 @@ export const App: FC = () => {
           <span>Turn {gameState.turnNumber}</span>
           <span>Format: {gameState.format}</span>
           <span>Status: {connectionStatus}</span>
+          <button
+            style={{ background: 'none', border: '1px solid #555', color: '#aaa', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', marginLeft: 4 }}
+            onClick={() => { setScreen('lobby'); }}
+          >
+            Leave
+          </button>
           <span style={{ marginLeft: 'auto', position: 'relative' }}>
             <button
               style={{ background: 'none', border: '1px solid #555', color: '#aaa', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}
