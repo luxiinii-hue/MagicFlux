@@ -82,6 +82,9 @@ export {
   getCreatureToughness,
 } from "./combat/keywords.js";
 
+// Layer system
+export { applyLayerSystem } from "./layers/layer-system.js";
+
 // Equipment
 export { attachEquipment, detachEquipment } from "./combat/equipment.js";
 

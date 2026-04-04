@@ -13,8 +13,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "node --loader ts-node/esm src/index.ts",
+    "start": "npx tsx --tsconfig tsconfig.dev.json src/main.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

@@ -18,10 +18,14 @@ import type {
   Player,
   SpellAbility,
   TokenDefinition,
+  Condition,
+  CardSelector,
+  CardFilter,
 } from "@magic-flux/types";
 import { ZoneType } from "@magic-flux/types";
 import { moveCard, graveyardKey, drawCard } from "../zones/transfers.js";
 import { addManaToPlayer, getPlayer, EMPTY_MANA_POOL } from "../mana/pool.js";
+import { cardHasKeyword } from "../combat/keywords.js";
 
 interface ResolutionContext {
   state: GameState;
@@ -166,18 +170,19 @@ function resolveEffect(ctx: ResolutionContext, effect: Effect): void {
       resolveGrantAbility(ctx, effect);
       break;
     case "conditional":
-      // TODO: evaluate condition properly
-      for (const sub of effect.thenEffects) {
-        resolveEffect(ctx, sub);
-      }
+      resolveConditional(ctx, effect);
       break;
     case "forEach":
+      resolveForEach(ctx, effect);
+      break;
     case "playerChoice":
     case "search":
     case "preventDamage":
     case "copy":
+      // These complex effects need player-choice infrastructure or replacement effects
+      break;
     case "custom":
-      // These complex effects are handled in later tiers
+      resolveCustom(ctx, effect);
       break;
     default:
       break;
@@ -810,5 +815,314 @@ function resolveGrantAbility(
         },
       ],
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// forEach effect — iterate matching cards, apply effect to each
+// ---------------------------------------------------------------------------
+
+function resolveForEach(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "forEach" }>,
+): void {
+  const selector = effect.selector;
+  const matchingIds = selectCards(ctx.state, selector, ctx.item.controller);
+
+  for (const cardId of matchingIds) {
+    // Create a temporary target ref so the sub-effect can reference this card
+    const tempRef: TargetRef = { targetRequirementId: "__forEach__" };
+
+    // Inject the card as a temporary target in the context
+    const originalTargets = ctx.item.targets;
+    const tempItem = {
+      ...ctx.item,
+      targets: [
+        ...ctx.item.targets,
+        { requirementId: "__forEach__", targetId: cardId, targetType: "card" as const },
+      ],
+    };
+    const savedItem = ctx.item;
+    (ctx as any).item = tempItem;
+    ctx.legalTargetIds.add(cardId);
+
+    resolveEffect(ctx, effect.effect);
+
+    // Restore original context
+    (ctx as any).item = savedItem;
+  }
+}
+
+/**
+ * Select card instance IDs matching a CardSelector from the game state.
+ */
+function selectCards(
+  state: GameState,
+  selector: CardSelector,
+  controllerId: string,
+): string[] {
+  const results: string[] = [];
+
+  // Determine which zones to search
+  let zoneKeys: string[];
+  if (selector.zone) {
+    const zones = Array.isArray(selector.zone) ? selector.zone : [selector.zone];
+    zoneKeys = Object.keys(state.zones).filter((key) => {
+      const zone = state.zones[key];
+      return zones.includes(zone.type);
+    });
+  } else {
+    zoneKeys = Object.keys(state.zones);
+  }
+
+  for (const key of zoneKeys) {
+    const zone = state.zones[key];
+    for (const cardId of zone.cardInstanceIds) {
+      const card = state.cardInstances[cardId];
+      if (!card) continue;
+
+      if (matchesSelector(card, selector, controllerId)) {
+        results.push(cardId);
+      }
+    }
+  }
+
+  return results;
+}
+
+function matchesSelector(
+  card: CardInstance,
+  selector: CardSelector,
+  controllerId: string,
+): boolean {
+  if (selector.controller) {
+    if (selector.controller === "you" && card.controller !== controllerId) return false;
+    if (selector.controller === "opponent" && card.controller === controllerId) return false;
+    if (selector.controller !== "any" && selector.controller !== "you" && selector.controller !== "opponent") {
+      if (card.controller !== selector.controller) return false;
+    }
+  }
+
+  if (selector.cardTypes && selector.cardTypes.length > 0) {
+    // Check if card is a creature (has P/T), artifact, etc.
+    // Since CardInstance doesn't store card types directly, we infer:
+    // - creature = modifiedPower !== null
+    // For full type checking, would need CardData lookup
+    const isCreature = card.modifiedPower !== null;
+    const wantsCreature = selector.cardTypes.includes("Creature");
+    if (wantsCreature && !isCreature) return false;
+    if (!wantsCreature && selector.cardTypes.length === 1 && isCreature) return false;
+  }
+
+  if (selector.power && card.modifiedPower !== null) {
+    if (!matchComparison(card.modifiedPower, selector.power)) return false;
+  }
+  if (selector.toughness && card.modifiedToughness !== null) {
+    if (!matchComparison(card.modifiedToughness, selector.toughness)) return false;
+  }
+
+  if (selector.name && !card.cardDataId.toLowerCase().includes(selector.name.toLowerCase())) {
+    return false;
+  }
+
+  if (selector.keywords && selector.keywords.length > 0) {
+    for (const kw of selector.keywords) {
+      if (!cardHasKeyword(card, kw)) return false;
+    }
+  }
+
+  return true;
+}
+
+function matchComparison(
+  value: number,
+  comparison: { readonly op: string; readonly value: number },
+): boolean {
+  switch (comparison.op) {
+    case "eq": return value === comparison.value;
+    case "lt": return value < comparison.value;
+    case "lte": return value <= comparison.value;
+    case "gt": return value > comparison.value;
+    case "gte": return value >= comparison.value;
+    case "neq": return value !== comparison.value;
+    default: return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Condition evaluator
+// ---------------------------------------------------------------------------
+
+interface ConditionContext {
+  kickerPaid?: boolean;
+}
+
+function evaluateCondition(
+  state: GameState,
+  condition: Condition,
+  controllerId: string,
+  context?: ConditionContext,
+): boolean {
+  switch (condition.type) {
+    case "controlsPermanent": {
+      const bf = state.zones["battlefield"];
+      if (!bf) return false;
+      return bf.cardInstanceIds.some((id) => {
+        const card = state.cardInstances[id];
+        return card && card.controller === controllerId && matchesFilter(card, condition.filter);
+      });
+    }
+    case "lifeAtOrBelow": {
+      const pid = resolvePlayerIdFromRef(state, condition.player, controllerId);
+      if (!pid) return false;
+      const player = state.players.find((p) => p.id === pid);
+      return !!player && player.life <= condition.amount;
+    }
+    case "cardInZone": {
+      const zones = Object.values(state.zones).filter((z) => z.type === condition.zone);
+      return zones.some((z) =>
+        z.cardInstanceIds.some((id) => {
+          const card = state.cardInstances[id];
+          return card && matchesFilter(card, condition.filter);
+        }),
+      );
+    }
+    case "and":
+      return condition.conditions.every((c) => evaluateCondition(state, c, controllerId, context));
+    case "or":
+      return condition.conditions.some((c) => evaluateCondition(state, c, controllerId, context));
+    case "not":
+      return !evaluateCondition(state, condition.condition, controllerId, context);
+    case "opponentCount":
+      return true;
+    case "custom": {
+      // Handle known custom predicates
+      if (condition.predicateFunction === "kickerPaid") {
+        return context?.kickerPaid ?? false;
+      }
+      return true;
+    }
+    default:
+      return true;
+  }
+}
+
+function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
+  if (filter.cardTypes && filter.cardTypes.length > 0) {
+    const isCreature = card.modifiedPower !== null;
+    const wantsCreature = filter.cardTypes.includes("Creature");
+    // Simple type check — creature detection via P/T
+    if (wantsCreature && !isCreature) return false;
+  }
+
+  if (filter.colors && filter.colors.length > 0) {
+    // Would need CardData for color check — skip for now
+  }
+
+  if (filter.colorsNot && filter.colorsNot.length > 0) {
+    // Would need CardData for color check — skip for now
+  }
+
+  if (filter.name && !card.cardDataId.toLowerCase().includes(filter.name.toLowerCase())) {
+    return false;
+  }
+
+  if (filter.power && card.modifiedPower !== null) {
+    if (!matchComparison(card.modifiedPower, filter.power)) return false;
+  }
+
+  if (filter.toughness && card.modifiedToughness !== null) {
+    if (!matchComparison(card.modifiedToughness, filter.toughness)) return false;
+  }
+
+  if (filter.keywords && filter.keywords.length > 0) {
+    for (const kw of filter.keywords) {
+      if (!cardHasKeyword(card, kw)) return false;
+    }
+  }
+
+  return true;
+}
+
+function resolvePlayerIdFromRef(
+  state: GameState,
+  ref: { readonly type: string; [key: string]: any },
+  controllerId: string,
+): string | null {
+  switch (ref.type) {
+    case "controller": return controllerId;
+    case "activePlayer": return state.activePlayerId;
+    case "specific": return ref.playerId;
+    default: return controllerId;
+  }
+}
+
+function resolveConditional(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "conditional" }>,
+): void {
+  const conditionContext: ConditionContext = {
+    kickerPaid: ctx.item.choices?.kickerPaid ?? false,
+  };
+  const conditionMet = evaluateCondition(ctx.state, effect.condition, ctx.item.controller, conditionContext);
+
+  if (conditionMet) {
+    for (const sub of effect.thenEffects) {
+      resolveEffect(ctx, sub);
+    }
+  } else if (effect.elseEffects) {
+    for (const sub of effect.elseEffects) {
+      resolveEffect(ctx, sub);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Custom effect handler — dispatch to named resolve functions
+// ---------------------------------------------------------------------------
+
+function resolveCustom(
+  ctx: ResolutionContext,
+  effect: Extract<Effect, { type: "custom" }>,
+): void {
+  switch (effect.resolveFunction) {
+    case "destroy_all_creatures":
+      resolveDestroyAllCreatures(ctx);
+      break;
+    case "oblivion_ring_return":
+      // TODO: track exiled card and return it
+      break;
+    case "equip_attach":
+      // Handled by the equipment system via executeAction
+      break;
+    default:
+      break;
+  }
+}
+
+function resolveDestroyAllCreatures(ctx: ResolutionContext): void {
+  const bf = ctx.state.zones["battlefield"];
+  if (!bf) return;
+
+  // Collect all creature instance IDs first (snapshot before mutation)
+  const creatureIds = bf.cardInstanceIds.filter((id) => {
+    const card = ctx.state.cardInstances[id];
+    return card && card.modifiedPower !== null; // Has P/T = creature
+  });
+
+  for (const creatureId of creatureIds) {
+    const card = ctx.state.cardInstances[creatureId];
+    if (!card || card.zone !== ZoneType.Battlefield) continue;
+
+    const moveResult = moveCard(
+      ctx.state, creatureId, "battlefield", graveyardKey(card.owner), Date.now(),
+    );
+    ctx.state = moveResult.state;
+    ctx.events.push(...moveResult.events);
+    ctx.events.push({
+      type: "cardDestroyed",
+      cardInstanceId: creatureId,
+      timestamp: Date.now(),
+    });
   }
 }

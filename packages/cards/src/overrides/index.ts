@@ -110,6 +110,80 @@ import {
   borosCharmOverride,
   lightningHelixOverride, lightningHelixTargets,
 } from "./standard-instants.js";
+import {
+  eidolonOfTheGreatRevelOverride,
+  earthshakerKhenraOverride, earthshakerKhenraTargets,
+  thaliaOverride,
+  adantoVanguardOverride,
+  benalishMarshalOverride,
+  experimentOneOverride,
+  peltCollectorOverride,
+  steelLeafChampionOverride,
+  burningTreeEmissaryOverride,
+  gruulSpellbreakerOverride,
+} from "./aggro-staples.js";
+import {
+  essenceScatterOverride, essenceScatterTargets,
+  serumVisionsOverride,
+  fatalPushOverride, fatalPushTargets,
+  inquisitionOfKozilekOverride, inquisitionOfKozilekTargets,
+  herosDownfallOverride, herosDownfallTargets,
+  wrathOfGodOverride,
+  dayOfJudgmentOverride,
+} from "./control-staples.js";
+import {
+  siegeRhinoOverride,
+  assassinsTrophyOverride, assassinsTrophyTargets,
+  mindStoneOverride,
+  rampantGrowthOverride,
+  cultivateOverride,
+} from "./midrange-staples.js";
+import {
+  raiseTheAlarmOverride,
+  dragonFodderOverride,
+  lingeringSoulsOverride,
+  spectralProcessionOverride,
+  youngPyromancerOverride,
+  sakuraTribeElderOverride,
+  villageRitesOverride,
+  visceraSeerOverride,
+  walkingBallistaOverride, walkingBallistaTargets,
+  luminarchAspirantOverride, luminarchAspirantTargets,
+  championOfTheParishOverride,
+  fireballOverride, fireballTargets,
+  sphinxsRevelationOverride,
+} from "./new-effect-cards.js";
+import {
+  monasteryMentorOverride, goblinRabblemasterOverride,
+  zurgoBellstrikerOverride, figureOfDestinyOverride,
+  ahnCropCrasherOverride, ahnCropCrasherTargets, falkenrathGorgerOverride,
+  recklessBushwhackerOverride, chainLightningOverride, chainLightningTargets,
+  lavaSpikeOverride, lavaSpikeTargets, riftBoltOverride, riftBoltTargets,
+  skullcrackOverride, skullcrackTargets, searingBlazeOverride, searingBlazeTargets,
+  brimstoneVolleyOverride, brimstoneVolleyTargets,
+  stokeTheFlamesOverride, stokeTheFlamesTargets,
+  exquisiteFirecraftOverride, exquisiteFirecraftTargets,
+} from "./sprint-aggro.js";
+import {
+  supremeVerdictOverride, damnationOverride,
+  crypticCommandOverride, forceOfWillOverride, forceOfWillTargets,
+  remandOverride, remandTargets,
+  jaceTMSOverride, lilianaOfTheVeilOverride,
+  factOrFictionOverride, digThroughTimeOverride, treasureCruiseOverride,
+  collectiveBrutalityOverride,
+  detentionSphereOverride, detentionSphereTargets,
+  thinkTwiceOverride,
+} from "./sprint-control.js";
+import {
+  thragtuskOverride,
+  restorationAngelOverride, restorationAngelTargets,
+  scavengingOozeOverride, tirelessTrackerOverride,
+  eternalWitnessOverride, eternalWitnessTargets,
+  voiceOfResurgenceOverride, hangarbackWalkerOverride,
+  aetherVialOverride, chromaticStarOverride, rancorOverride,
+  expeditionMapOverride, farseekOverride,
+  beastWithinOverride, beastWithinTargets, dismemberOverride, dismemberTargets,
+} from "./sprint-midrange.js";
 
 // ---------------------------------------------------------------------------
 // Override entry type
@@ -236,6 +310,93 @@ register("Vampire Nighthawk", vampireNighthawkOverride);
 register("Monastery Swiftspear", monasterySwiftspearOverride);
 register("Savannah Lions", savannahLionsOverride);
 register("Elvish Mystic", elvishMysticOverride);
+
+// Phase 5 Group A: Aggro staples
+register("Eidolon of the Great Revel", eidolonOfTheGreatRevelOverride);
+register("Earthshaker Khenra", earthshakerKhenraOverride, earthshakerKhenraTargets);
+register("Thalia, Guardian of Thraben", thaliaOverride);
+register("Adanto Vanguard", adantoVanguardOverride);
+register("Benalish Marshal", benalishMarshalOverride);
+register("Experiment One", experimentOneOverride);
+register("Pelt Collector", peltCollectorOverride);
+register("Steel Leaf Champion", steelLeafChampionOverride);
+register("Burning-Tree Emissary", burningTreeEmissaryOverride);
+register("Gruul Spellbreaker", gruulSpellbreakerOverride);
+
+// Phase 5 Group B: Control staples
+register("Essence Scatter", essenceScatterOverride, essenceScatterTargets);
+register("Serum Visions", serumVisionsOverride);
+register("Fatal Push", fatalPushOverride, fatalPushTargets);
+register("Inquisition of Kozilek", inquisitionOfKozilekOverride, inquisitionOfKozilekTargets);
+register("Hero's Downfall", herosDownfallOverride, herosDownfallTargets);
+register("Wrath of God", wrathOfGodOverride);
+register("Day of Judgment", dayOfJudgmentOverride);
+
+// Phase 5 Group C: Midrange/utility staples
+register("Siege Rhino", siegeRhinoOverride);
+register("Assassin's Trophy", assassinsTrophyOverride, assassinsTrophyTargets);
+register("Mind Stone", mindStoneOverride);
+register("Rampant Growth", rampantGrowthOverride);
+register("Cultivate", cultivateOverride);
+
+// Phase 5 Group D: Cards using new effect types (tokens, sacrifice, counters, X spells)
+register("Raise the Alarm", raiseTheAlarmOverride);
+register("Dragon Fodder", dragonFodderOverride);
+register("Lingering Souls", lingeringSoulsOverride);
+register("Spectral Procession", spectralProcessionOverride);
+register("Young Pyromancer", youngPyromancerOverride);
+register("Sakura-Tribe Elder", sakuraTribeElderOverride);
+register("Village Rites", villageRitesOverride);
+register("Viscera Seer", visceraSeerOverride);
+register("Walking Ballista", walkingBallistaOverride, walkingBallistaTargets);
+register("Luminarch Aspirant", luminarchAspirantOverride, luminarchAspirantTargets);
+register("Champion of the Parish", championOfTheParishOverride);
+register("Fireball", fireballOverride, fireballTargets);
+register("Sphinx's Revelation", sphinxsRevelationOverride);
+
+// Phase 5 sprint: additional cards (non-overlapping with aggro/control-staples)
+register("Monastery Mentor", monasteryMentorOverride);
+register("Goblin Rabblemaster", goblinRabblemasterOverride);
+register("Zurgo Bellstriker", zurgoBellstrikerOverride);
+register("Figure of Destiny", figureOfDestinyOverride);
+register("Ahn-Crop Crasher", ahnCropCrasherOverride, ahnCropCrasherTargets);
+register("Falkenrath Gorger", falkenrathGorgerOverride);
+register("Reckless Bushwhacker", recklessBushwhackerOverride);
+register("Chain Lightning", chainLightningOverride, chainLightningTargets);
+register("Lava Spike", lavaSpikeOverride, lavaSpikeTargets);
+register("Rift Bolt", riftBoltOverride, riftBoltTargets);
+register("Skullcrack", skullcrackOverride, skullcrackTargets);
+register("Searing Blaze", searingBlazeOverride, searingBlazeTargets);
+register("Brimstone Volley", brimstoneVolleyOverride, brimstoneVolleyTargets);
+register("Stoke the Flames", stokeTheFlamesOverride, stokeTheFlamesTargets);
+register("Exquisite Firecraft", exquisiteFirecraftOverride, exquisiteFirecraftTargets);
+register("Supreme Verdict", supremeVerdictOverride);
+register("Damnation", damnationOverride);
+register("Cryptic Command", crypticCommandOverride);
+register("Force of Will", forceOfWillOverride, forceOfWillTargets);
+register("Remand", remandOverride, remandTargets);
+register("Jace, the Mind Sculptor", jaceTMSOverride);
+register("Liliana of the Veil", lilianaOfTheVeilOverride);
+register("Fact or Fiction", factOrFictionOverride);
+register("Dig Through Time", digThroughTimeOverride);
+register("Treasure Cruise", treasureCruiseOverride);
+register("Collective Brutality", collectiveBrutalityOverride);
+register("Detention Sphere", detentionSphereOverride, detentionSphereTargets);
+register("Think Twice", thinkTwiceOverride);
+register("Thragtusk", thragtuskOverride);
+register("Restoration Angel", restorationAngelOverride, restorationAngelTargets);
+register("Scavenging Ooze", scavengingOozeOverride);
+register("Tireless Tracker", tirelessTrackerOverride);
+register("Eternal Witness", eternalWitnessOverride, eternalWitnessTargets);
+register("Voice of Resurgence", voiceOfResurgenceOverride);
+register("Hangarback Walker", hangarbackWalkerOverride);
+register("Aether Vial", aetherVialOverride);
+register("Chromatic Star", chromaticStarOverride);
+register("Rancor", rancorOverride);
+register("Expedition Map", expeditionMapOverride);
+register("Farseek", farseekOverride);
+register("Beast Within", beastWithinOverride, beastWithinTargets);
+register("Dismember", dismemberOverride, dismemberTargets);
 
 // ---------------------------------------------------------------------------
 // Public API

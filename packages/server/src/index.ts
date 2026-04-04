@@ -18,24 +18,8 @@ export type { MagicFluxServer, MagicFluxServerOptions } from "./websocket/server
 export { handleClientMessage } from "./websocket/handlers.js";
 export type { ConnectedClient } from "./websocket/handlers.js";
 
-// Protocol types
-export type {
-  ServerMessage,
-  ClientMessage,
-  StateUpdateMessage,
-  LegalActionsMessage,
-  PromptMessage,
-  GameEventMessage,
-  GameErrorMessage,
-  GameOverMessage,
-  GameCreatedMessage,
-  GameStartingMessage,
-  GameActionMessage,
-  PromptResponseMessage,
-  CreateGameMessage,
-  JoinGameMessage,
-  LeaveGameMessage,
-} from "./websocket/protocol.js";
+// Protocol types — import from @magic-flux/types directly.
+// Server re-exports only server-specific types, not shared protocol types.
 
 // Lobby
 export { Lobby } from "./lobby/lobby.js";

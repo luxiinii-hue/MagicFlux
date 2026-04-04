@@ -145,6 +145,28 @@ export type {
 } from "./game-state.js";
 export type { GameFormat } from "./game-state.js";
 
+// WebSocket message types
+export type {
+  StateUpdateMessage,
+  LegalActionsMessage,
+  PromptMessage,
+  GameEventMessage,
+  GameErrorMessage,
+  GameOverMessage,
+  GameCreatedMessage,
+  GameStartingMessage,
+  LobbyGameListMessage,
+  DeckValidationMessage,
+  ServerMessage,
+  GameActionMessage,
+  PromptResponseMessage,
+  CreateGameMessage,
+  JoinGameMessage,
+  LeaveGameMessage,
+  ListGamesMessage,
+  ClientMessage,
+} from "./messages.js";
+
 // Constants
 export {
   MAX_HAND_SIZE,

@@ -13,11 +13,31 @@ import type {
   LeaveGameMessage,
   GameActionMessage,
 } from "./protocol.js";
-import type { GameFormat, DecklistEntry } from "@magic-flux/types";
+import type { GameFormat, DecklistEntry, Decklist, DeckValidationResult } from "@magic-flux/types";
 import type { Lobby } from "../lobby/lobby.js";
 import type { PlayerConnection } from "../game-session/session.js";
+import { validateDecklist } from "@magic-flux/cards";
 
 const VALID_FORMATS: readonly string[] = ["standard", "modern", "commander"];
+
+/**
+ * Wraps a flat DecklistEntry[] into a Decklist for validation.
+ * Treats the entire list as mainboard (client-side parsing of
+ * sideboard/commander sections is a future enhancement).
+ */
+function entriesToDecklist(
+  entries: readonly DecklistEntry[],
+  format: string
+): Decklist {
+  return {
+    name: "",
+    format,
+    mainboard: entries,
+    sideboard: [],
+    commander: null,
+    companion: null,
+  };
+}
 
 export interface ConnectedClient {
   readonly clientId: string;
@@ -74,6 +94,21 @@ function handleCreateGame(
     return;
   }
 
+  // Validate decklist
+  const decklist = entriesToDecklist(payload.decklist, payload.format);
+  const validation = validateDecklist(decklist, payload.format);
+  client.send({
+    type: "lobby:deckValidation",
+    payload: {
+      valid: validation.valid,
+      errors: validation.errors,
+      warnings: validation.warnings,
+    },
+  });
+  if (!validation.valid) {
+    return;
+  }
+
   const connection: PlayerConnection = {
     playerId: client.clientId,
     playerName: client.playerName,
@@ -106,6 +141,31 @@ function handleJoinGame(
   payload: JoinGameMessage["payload"],
   lobby: Lobby
 ): void {
+  // Look up the game to get its format for validation
+  const existingSession = lobby.getSession(payload.gameId);
+  if (!existingSession) {
+    client.send({
+      type: "game:error",
+      payload: { code: "GAME_NOT_FOUND", message: `Game ${payload.gameId} not found` },
+    });
+    return;
+  }
+
+  // Validate decklist against the game's format
+  const decklist = entriesToDecklist(payload.decklist, existingSession.format);
+  const validation = validateDecklist(decklist, existingSession.format);
+  client.send({
+    type: "lobby:deckValidation",
+    payload: {
+      valid: validation.valid,
+      errors: validation.errors,
+      warnings: validation.warnings,
+    },
+  });
+  if (!validation.valid) {
+    return;
+  }
+
   const connection: PlayerConnection = {
     playerId: client.clientId,
     playerName: client.playerName,

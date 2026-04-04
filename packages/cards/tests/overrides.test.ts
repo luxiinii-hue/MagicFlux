@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { SpellAbility, SpellAbilitySpell, SpellAbilityMana, Effect } from "@magic-flux/types";
+import type { SpellAbility, SpellAbilitySpell, SpellAbilityMana, SpellAbilityActivated, SpellAbilityTriggered, Effect } from "@magic-flux/types";
 import { ZoneType } from "@magic-flux/types";
 import {
   getCardOverride,
@@ -1251,13 +1251,897 @@ describe("Bonesplitter override", () => {
 });
 
 // ===========================================================================
+// Phase 5 Group A — Aggro staples
+// ===========================================================================
+
+describe("Eidolon of the Great Revel override", () => {
+  it("should produce spell + triggered abilities", () => {
+    const override = getCardOverride("Eidolon of the Great Revel")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const spell = abilities.find((a) => a.type === "spell");
+    expect(spell).toBeDefined();
+    expect(spell!.id).toContain("eidolon");
+
+    const trigger = abilities.find((a) => a.type === "triggered");
+    expect(trigger).toBeDefined();
+  });
+
+  it("should have a trigger on spellCast with CMC <= 3", () => {
+    const override = getCardOverride("Eidolon of the Great Revel")!;
+    const abilities = override.getAbilities();
+    const trigger = abilities.find((a) => a.type === "triggered");
+    if (trigger && trigger.type === "triggered") {
+      expect(trigger.triggerCondition.eventType).toBe("spellCast");
+      expect(trigger.triggerCondition.filter).not.toBeNull();
+      expect(trigger.triggerCondition.filter!.cmc).toEqual({ op: "lte", value: 3 });
+    }
+  });
+
+  it("should deal 2 damage via the trigger", () => {
+    const override = getCardOverride("Eidolon of the Great Revel")!;
+    const abilities = override.getAbilities();
+    const trigger = abilities.find((a) => a.type === "triggered");
+    expect(trigger!.effects).toHaveLength(1);
+    expect(trigger!.effects[0].type).toBe("dealDamage");
+    if (trigger!.effects[0].type === "dealDamage") {
+      expect(trigger!.effects[0].amount).toBe(2);
+    }
+  });
+
+  it("should not require targets from registry (no spellTargets)", () => {
+    const override = getCardOverride("Eidolon of the Great Revel")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+describe("Earthshaker Khenra override", () => {
+  it("should produce spell + haste + ETB trigger", () => {
+    const override = getCardOverride("Earthshaker Khenra")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(3);
+
+    expect(abilities.filter((a) => a.type === "spell")).toHaveLength(1);
+    expect(abilities.filter((a) => a.type === "static")).toHaveLength(1);
+    expect(abilities.filter((a) => a.type === "triggered")).toHaveLength(1);
+  });
+
+  it("should have haste keyword static", () => {
+    const override = getCardOverride("Earthshaker Khenra")!;
+    const abilities = override.getAbilities();
+    const haste = abilities.find((a) => a.type === "static");
+    if (haste && haste.type === "static") {
+      expect(haste.continuousEffect.effectType).toBe("haste");
+    }
+  });
+
+  it("should have ETB trigger targeting a creature", () => {
+    const override = getCardOverride("Earthshaker Khenra")!;
+    const abilities = override.getAbilities();
+    const trigger = abilities.find((a) => a.type === "triggered");
+    if (trigger && trigger.type === "triggered") {
+      expect(trigger.triggerCondition.eventType).toBe("cardEnteredZone");
+      expect(trigger.triggerCondition.self).toBe(true);
+      expect(trigger.targets).toHaveLength(1);
+      expect(trigger.targets[0].targetTypes).toContain("creature");
+    }
+  });
+
+  it("should have spellTargets for the ETB creature target", () => {
+    const override = getCardOverride("Earthshaker Khenra")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].targetTypes).toContain("creature");
+  });
+});
+
+describe("Thalia, Guardian of Thraben override", () => {
+  it("should produce spell + first strike + tax static", () => {
+    const override = getCardOverride("Thalia, Guardian of Thraben")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(3);
+
+    expect(abilities.filter((a) => a.type === "spell")).toHaveLength(1);
+    expect(abilities.filter((a) => a.type === "static")).toHaveLength(2);
+  });
+
+  it("should have first strike keyword", () => {
+    const override = getCardOverride("Thalia, Guardian of Thraben")!;
+    const abilities = override.getAbilities();
+    const firstStrike = abilities.find(
+      (a) => a.type === "static" && a.id.includes("first_strike")
+    );
+    expect(firstStrike).toBeDefined();
+    if (firstStrike && firstStrike.type === "static") {
+      expect(firstStrike.continuousEffect.effectType).toBe("first strike");
+    }
+  });
+
+  it("should have costIncrease static for noncreature spells", () => {
+    const override = getCardOverride("Thalia, Guardian of Thraben")!;
+    const abilities = override.getAbilities();
+    const tax = abilities.find(
+      (a) => a.type === "static" && a.id.includes("tax")
+    );
+    expect(tax).toBeDefined();
+    if (tax && tax.type === "static") {
+      expect(tax.continuousEffect.effectType).toBe("costIncrease");
+      expect(tax.continuousEffect.modification).toEqual({ genericIncrease: 1 });
+    }
+  });
+});
+
+describe("Adanto Vanguard override", () => {
+  it("should produce spell + activated ability", () => {
+    const override = getCardOverride("Adanto Vanguard")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    expect(abilities.filter((a) => a.type === "spell")).toHaveLength(1);
+    expect(abilities.filter((a) => a.type === "activated")).toHaveLength(1);
+  });
+
+  it("should pay 4 life as activation cost", () => {
+    const override = getCardOverride("Adanto Vanguard")!;
+    const abilities = override.getAbilities();
+    const activated = abilities.find((a) => a.type === "activated");
+    if (activated && activated.type === "activated") {
+      expect(activated.cost.payLife).toBe(4);
+      expect(activated.cost.manaCost).toBeNull();
+      expect(activated.cost.tapSelf).toBe(false);
+    }
+  });
+});
+
+describe("Benalish Marshal override", () => {
+  it("should produce spell + anthem static", () => {
+    const override = getCardOverride("Benalish Marshal")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    expect(abilities.filter((a) => a.type === "spell")).toHaveLength(1);
+    expect(abilities.filter((a) => a.type === "static")).toHaveLength(1);
+  });
+
+  it("should have modifyPT anthem at layer 7 for other creatures you control", () => {
+    const override = getCardOverride("Benalish Marshal")!;
+    const abilities = override.getAbilities();
+    const anthem = abilities.find((a) => a.type === "static");
+    if (anthem && anthem.type === "static") {
+      expect(anthem.continuousEffect.effectType).toBe("modifyPT");
+      expect(anthem.continuousEffect.modification).toEqual({ power: 1, toughness: 1 });
+      expect(anthem.continuousEffect.affectedFilter).toEqual(
+        expect.objectContaining({ cardTypes: ["Creature"], self: false })
+      );
+      expect(anthem.layer).toBe(7);
+    }
+  });
+});
+
+describe("Experiment One override", () => {
+  it("should produce spell + evolve triggered ability", () => {
+    const override = getCardOverride("Experiment One")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const trigger = abilities.find((a) => a.type === "triggered");
+    expect(trigger).toBeDefined();
+    if (trigger && trigger.type === "triggered") {
+      expect(trigger.triggerCondition.eventType).toBe("cardEnteredZone");
+      expect(trigger.triggerCondition.filter!.cardTypes).toContain("Creature");
+      expect(trigger.triggerCondition.self).toBe(false);
+      expect(trigger.effects[0].type).toBe("custom");
+    }
+  });
+});
+
+describe("Pelt Collector override", () => {
+  it("should produce spell + counter-on-creature-ETB triggered ability", () => {
+    const override = getCardOverride("Pelt Collector")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const trigger = abilities.find((a) => a.type === "triggered");
+    expect(trigger).toBeDefined();
+    if (trigger && trigger.type === "triggered") {
+      expect(trigger.triggerCondition.eventType).toBe("cardEnteredZone");
+      expect(trigger.triggerCondition.filter!.cardTypes).toContain("Creature");
+      expect(trigger.effects[0].type).toBe("custom");
+    }
+  });
+});
+
+describe("Steel Leaf Champion override", () => {
+  it("should produce spell + evasion static", () => {
+    const override = getCardOverride("Steel Leaf Champion")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const evasion = abilities.find((a) => a.type === "static");
+    expect(evasion).toBeDefined();
+    if (evasion && evasion.type === "static") {
+      expect(evasion.continuousEffect.effectType).toBe("cantBeBlockedBy");
+      expect(evasion.continuousEffect.modification).toEqual(
+        expect.objectContaining({
+          blockerFilter: { power: { op: "lte", value: 2 } },
+        })
+      );
+    }
+  });
+});
+
+describe("Burning-Tree Emissary override", () => {
+  it("should produce spell + ETB mana trigger", () => {
+    const override = getCardOverride("Burning-Tree Emissary")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const trigger = abilities.find((a) => a.type === "triggered");
+    expect(trigger).toBeDefined();
+    if (trigger && trigger.type === "triggered") {
+      expect(trigger.triggerCondition.eventType).toBe("cardEnteredZone");
+      expect(trigger.triggerCondition.self).toBe(true);
+      expect(trigger.effects).toHaveLength(1);
+      expect(trigger.effects[0].type).toBe("addMana");
+      if (trigger.effects[0].type === "addMana") {
+        expect(trigger.effects[0].mana.R).toBe(1);
+        expect(trigger.effects[0].mana.G).toBe(1);
+      }
+    }
+  });
+});
+
+describe("Gruul Spellbreaker override", () => {
+  it("should produce spell + haste", () => {
+    const override = getCardOverride("Gruul Spellbreaker")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const spell = abilities.find((a) => a.type === "spell");
+    expect(spell).toBeDefined();
+
+    const haste = abilities.find((a) => a.type === "static");
+    expect(haste).toBeDefined();
+    if (haste && haste.type === "static") {
+      expect(haste.continuousEffect.effectType).toBe("haste");
+    }
+  });
+});
+
+// ===========================================================================
+// Phase 5 Group B — Control staples
+// ===========================================================================
+
+describe("Essence Scatter override", () => {
+  it("should counter a creature spell", () => {
+    const override = getCardOverride("Essence Scatter")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(1);
+
+    const spell = getSpellAbility(abilities);
+    expect(spell.effects).toHaveLength(1);
+    expect(spell.effects[0].type).toBe("counter");
+  });
+
+  it("should target creature spells only", () => {
+    const override = getCardOverride("Essence Scatter")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].targetTypes).toEqual(["spell"]);
+    expect(override.spellTargets[0].filter).not.toBeNull();
+    expect(override.spellTargets[0].filter!.cardTypes).toContain("Creature");
+  });
+});
+
+describe("Serum Visions override", () => {
+  it("should draw 1 card for controller", () => {
+    const override = getCardOverride("Serum Visions")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = getEffect(spell, "drawCards");
+    if (effect.type === "drawCards") {
+      expect(effect.count).toBe(1);
+      expect(effect.player).toEqual({ type: "controller" });
+    }
+  });
+
+  it("should not require targets", () => {
+    const override = getCardOverride("Serum Visions")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+describe("Fatal Push override", () => {
+  it("should destroy a target creature", () => {
+    const override = getCardOverride("Fatal Push")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = getEffect(spell, "destroy");
+    expect(effect.type).toBe("destroy");
+  });
+
+  it("should target creatures", () => {
+    const override = getCardOverride("Fatal Push")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].targetTypes).toEqual(["creature"]);
+  });
+});
+
+describe("Inquisition of Kozilek override", () => {
+  it("should force target player to discard 1 card", () => {
+    const override = getCardOverride("Inquisition of Kozilek")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = getEffect(spell, "discardCards");
+    if (effect.type === "discardCards") {
+      expect(effect.count).toBe(1);
+      expect(effect.player.type).toBe("targetPlayer");
+    }
+  });
+
+  it("should target a player", () => {
+    const override = getCardOverride("Inquisition of Kozilek")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].targetTypes).toEqual(["player"]);
+  });
+});
+
+describe("Hero's Downfall override", () => {
+  it("should destroy a target creature or planeswalker", () => {
+    const override = getCardOverride("Hero's Downfall")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = getEffect(spell, "destroy");
+    expect(effect.type).toBe("destroy");
+  });
+
+  it("should target creatures and planeswalkers", () => {
+    const override = getCardOverride("Hero's Downfall")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].targetTypes).toContain("creature");
+    expect(override.spellTargets[0].targetTypes).toContain("planeswalker");
+  });
+});
+
+describe("Wrath of God override", () => {
+  it("should use custom destroy_all_creatures resolve", () => {
+    const override = getCardOverride("Wrath of God")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+    expect(spell.effects[0].type).toBe("custom");
+    if (spell.effects[0].type === "custom") {
+      expect(spell.effects[0].resolveFunction).toBe("destroy_all_creatures");
+    }
+  });
+
+  it("should not require targets (board wipe)", () => {
+    const override = getCardOverride("Wrath of God")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+describe("Day of Judgment override", () => {
+  it("should use custom destroy_all_creatures resolve (same as Wrath)", () => {
+    const override = getCardOverride("Day of Judgment")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+    expect(spell.effects[0].type).toBe("custom");
+    if (spell.effects[0].type === "custom") {
+      expect(spell.effects[0].resolveFunction).toBe("destroy_all_creatures");
+    }
+  });
+
+  it("should not require targets (board wipe)", () => {
+    const override = getCardOverride("Day of Judgment")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+// ===========================================================================
+// Group C: Midrange/utility staples
+// ===========================================================================
+
+describe("Siege Rhino override", () => {
+  it("should produce a triggered ETB ability and a trample static", () => {
+    const override = getCardOverride("Siege Rhino")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const triggered = abilities.find((a) => a.type === "triggered");
+    expect(triggered).toBeDefined();
+    expect(triggered!.id).toBe("siege_rhino_etb");
+
+    const staticAb = abilities.find((a) => a.type === "static");
+    expect(staticAb).toBeDefined();
+    if (staticAb!.type === "static") {
+      expect(staticAb!.continuousEffect.effectType).toBe("trample");
+    }
+  });
+
+  it("should have loseLife and gainLife effects on ETB", () => {
+    const override = getCardOverride("Siege Rhino")!;
+    const triggered = override.getAbilities().find((a) => a.type === "triggered")!;
+    expect(triggered.effects).toHaveLength(2);
+
+    const loseLife = triggered.effects.find((e) => e.type === "loseLife");
+    expect(loseLife).toBeDefined();
+    if (loseLife && loseLife.type === "loseLife") {
+      expect(loseLife.amount).toBe(3);
+    }
+
+    const gainLife = triggered.effects.find((e) => e.type === "gainLife");
+    expect(gainLife).toBeDefined();
+    if (gainLife && gainLife.type === "gainLife") {
+      expect(gainLife.amount).toBe(3);
+      expect(gainLife.player).toEqual({ type: "controller" });
+    }
+  });
+
+  it("should not require any targets", () => {
+    const override = getCardOverride("Siege Rhino")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+describe("Assassin's Trophy override", () => {
+  it("should produce a spell ability that destroys target permanent", () => {
+    const override = getCardOverride("Assassin's Trophy")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(1);
+
+    const spell = getSpellAbility(abilities);
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = getEffect(spell, "destroy");
+    if (effect.type === "destroy") {
+      expect(effect.target.targetRequirementId).toBe("at_t1");
+    }
+  });
+
+  it("should target any permanent", () => {
+    const override = getCardOverride("Assassin's Trophy")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].targetTypes).toContain("permanent");
+    expect(override.spellTargets[0].controller).toBe("any");
+  });
+});
+
+describe("Mind Stone override", () => {
+  it("should produce a mana ability and an activated draw ability", () => {
+    const override = getCardOverride("Mind Stone")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const mana = abilities.find((a) => a.type === "mana");
+    expect(mana).toBeDefined();
+
+    const activated = abilities.find((a) => a.type === "activated");
+    expect(activated).toBeDefined();
+  });
+
+  it("should add {C} with the mana ability", () => {
+    const override = getCardOverride("Mind Stone")!;
+    const mana = getManaAbility(override.getAbilities());
+    const effect = getEffect(mana, "addMana");
+    if (effect.type === "addMana") {
+      expect(effect.mana.C).toBe(1);
+      expect(effect.mana.W).toBe(0);
+    }
+    expect(mana.cost.tapSelf).toBe(true);
+  });
+
+  it("should require sacrifice + {1} + tap to draw a card", () => {
+    const override = getCardOverride("Mind Stone")!;
+    const activated = override.getAbilities().find((a) => a.type === "activated") as SpellAbilityActivated;
+    expect(activated.cost.tapSelf).toBe(true);
+    expect(activated.cost.sacrifice).toBeDefined();
+    expect(activated.cost.sacrifice!.self).toBe(true);
+    expect(activated.cost.manaCost!.totalCMC).toBe(1);
+
+    const drawEffect = activated.effects.find((e) => e.type === "drawCards");
+    expect(drawEffect).toBeDefined();
+    if (drawEffect && drawEffect.type === "drawCards") {
+      expect(drawEffect.count).toBe(1);
+    }
+  });
+});
+
+describe("Rampant Growth override", () => {
+  it("should produce a spell ability that adds {G}", () => {
+    const override = getCardOverride("Rampant Growth")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = getEffect(spell, "addMana");
+    if (effect.type === "addMana") {
+      expect(effect.mana.G).toBe(1);
+    }
+  });
+
+  it("should not require any targets", () => {
+    const override = getCardOverride("Rampant Growth")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+describe("Cultivate override", () => {
+  it("should produce a spell ability that adds {G}{G}", () => {
+    const override = getCardOverride("Cultivate")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = getEffect(spell, "addMana");
+    if (effect.type === "addMana") {
+      expect(effect.mana.G).toBe(2);
+    }
+  });
+
+  it("should not require any targets", () => {
+    const override = getCardOverride("Cultivate")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+// ===========================================================================
+// Group D: Cards using new effect types
+// ===========================================================================
+
+// --- Token creation cards ---
+
+describe("Raise the Alarm override", () => {
+  it("should create two 1/1 white Soldier tokens", () => {
+    const override = getCardOverride("Raise the Alarm")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = spell.effects[0];
+    expect(effect.type).toBe("createToken");
+    if (effect.type === "createToken") {
+      expect(effect.count).toBe(2);
+      expect(effect.token.name).toBe("Soldier");
+      expect(effect.token.colors).toEqual(["W"]);
+      expect(effect.token.power).toBe(1);
+      expect(effect.token.toughness).toBe(1);
+      expect(effect.controller).toEqual({ type: "controller" });
+    }
+  });
+
+  it("should not require any targets", () => {
+    const override = getCardOverride("Raise the Alarm")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+describe("Dragon Fodder override", () => {
+  it("should create two 1/1 red Goblin tokens", () => {
+    const override = getCardOverride("Dragon Fodder")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+
+    const effect = spell.effects[0];
+    expect(effect.type).toBe("createToken");
+    if (effect.type === "createToken") {
+      expect(effect.count).toBe(2);
+      expect(effect.token.name).toBe("Goblin");
+      expect(effect.token.colors).toEqual(["R"]);
+      expect(effect.token.power).toBe(1);
+      expect(effect.token.toughness).toBe(1);
+    }
+  });
+});
+
+describe("Lingering Souls override", () => {
+  it("should create two 1/1 white Spirit tokens with flying", () => {
+    const override = getCardOverride("Lingering Souls")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+
+    const effect = spell.effects[0];
+    expect(effect.type).toBe("createToken");
+    if (effect.type === "createToken") {
+      expect(effect.count).toBe(2);
+      expect(effect.token.name).toBe("Spirit");
+      expect(effect.token.colors).toEqual(["W"]);
+      expect(effect.token.keywords).toContain("Flying");
+    }
+  });
+
+  it("should be castable from graveyard (flashback zone)", () => {
+    const override = getCardOverride("Lingering Souls")!;
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.zones).toContain(ZoneType.Graveyard);
+  });
+});
+
+describe("Spectral Procession override", () => {
+  it("should create three 1/1 white Spirit tokens with flying", () => {
+    const override = getCardOverride("Spectral Procession")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+
+    const effect = spell.effects[0];
+    expect(effect.type).toBe("createToken");
+    if (effect.type === "createToken") {
+      expect(effect.count).toBe(3);
+      expect(effect.token.name).toBe("Spirit");
+      expect(effect.token.keywords).toContain("Flying");
+    }
+  });
+});
+
+describe("Young Pyromancer override", () => {
+  it("should create a 1/1 red Elemental token when an instant or sorcery is cast", () => {
+    const override = getCardOverride("Young Pyromancer")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(1);
+
+    const triggered = abilities[0];
+    expect(triggered.type).toBe("triggered");
+    if (triggered.type === "triggered") {
+      expect(triggered.triggerCondition.eventType).toBe("spellCast");
+      expect(triggered.triggerCondition.filter).toEqual({ cardTypes: ["Instant", "Sorcery"] });
+    }
+
+    const effect = triggered.effects[0];
+    expect(effect.type).toBe("createToken");
+    if (effect.type === "createToken") {
+      expect(effect.count).toBe(1);
+      expect(effect.token.name).toBe("Elemental");
+      expect(effect.token.colors).toEqual(["R"]);
+    }
+  });
+});
+
+// --- Sacrifice cards ---
+
+describe("Sakura-Tribe Elder override", () => {
+  it("should have a mana ability that sacrifices itself to add {G}", () => {
+    const override = getCardOverride("Sakura-Tribe Elder")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(1);
+
+    const mana = getManaAbility(abilities);
+    expect(mana.cost.sacrifice).toBeDefined();
+    expect(mana.cost.sacrifice!.self).toBe(true);
+    expect(mana.cost.tapSelf).toBe(false);
+
+    const effect = getEffect(mana, "addMana");
+    if (effect.type === "addMana") {
+      expect(effect.mana.G).toBe(1);
+    }
+  });
+});
+
+describe("Village Rites override", () => {
+  it("should sacrifice a creature and draw 2 cards", () => {
+    const override = getCardOverride("Village Rites")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(2);
+
+    const sacrifice = spell.effects.find((e) => e.type === "sacrifice");
+    expect(sacrifice).toBeDefined();
+    if (sacrifice && sacrifice.type === "sacrifice") {
+      expect(sacrifice.count).toBe(1);
+      expect(sacrifice.filter.cardTypes).toContain("Creature");
+    }
+
+    const draw = spell.effects.find((e) => e.type === "drawCards");
+    expect(draw).toBeDefined();
+    if (draw && draw.type === "drawCards") {
+      expect(draw.count).toBe(2);
+    }
+  });
+});
+
+describe("Viscera Seer override", () => {
+  it("should sacrifice a creature to draw a card (simplified scry)", () => {
+    const override = getCardOverride("Viscera Seer")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(1);
+
+    const activated = abilities[0] as SpellAbilityActivated;
+    expect(activated.type).toBe("activated");
+    expect(activated.cost.sacrifice).toBeDefined();
+    expect(activated.cost.sacrifice!.cardTypes).toContain("Creature");
+    expect(activated.cost.tapSelf).toBe(false);
+
+    const effect = getEffect(activated, "drawCards");
+    if (effect.type === "drawCards") {
+      expect(effect.count).toBe(1);
+    }
+  });
+});
+
+// --- Counter-based cards ---
+
+describe("Walking Ballista override", () => {
+  it("should enter with X +1/+1 counters via ETB trigger", () => {
+    const override = getCardOverride("Walking Ballista")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(2);
+
+    const triggered = abilities.find((a) => a.type === "triggered") as SpellAbilityTriggered;
+    expect(triggered).toBeDefined();
+    expect(triggered.triggerCondition.eventType).toBe("cardEnteredZone");
+    expect(triggered.triggerCondition.self).toBe(true);
+
+    const addCounters = triggered.effects[0];
+    expect(addCounters.type).toBe("addCounters");
+    if (addCounters.type === "addCounters") {
+      expect(addCounters.counterType).toBe("+1/+1");
+      expect(addCounters.count).toEqual({ variable: "X" });
+    }
+  });
+
+  it("should have an activated ability to remove a +1/+1 counter and deal 1 damage", () => {
+    const override = getCardOverride("Walking Ballista")!;
+    const activated = override.getAbilities().find((a) => a.type === "activated") as SpellAbilityActivated;
+    expect(activated).toBeDefined();
+    expect(activated.cost.removeCounters).toEqual({ counterType: "+1/+1", count: 1 });
+
+    const damage = activated.effects[0];
+    expect(damage.type).toBe("dealDamage");
+    if (damage.type === "dealDamage") {
+      expect(damage.amount).toBe(1);
+    }
+  });
+
+  it("should have target requirements for the ping ability", () => {
+    const override = getCardOverride("Walking Ballista")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].targetTypes).toContain("creature");
+    expect(override.spellTargets[0].targetTypes).toContain("player");
+  });
+});
+
+describe("Luminarch Aspirant override", () => {
+  it("should put a +1/+1 counter on target creature you control at beginning of combat", () => {
+    const override = getCardOverride("Luminarch Aspirant")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(1);
+
+    const triggered = abilities[0] as SpellAbilityTriggered;
+    expect(triggered.type).toBe("triggered");
+    expect(triggered.triggerCondition.eventType).toBe("phaseChanged");
+
+    const effect = triggered.effects[0];
+    expect(effect.type).toBe("addCounters");
+    if (effect.type === "addCounters") {
+      expect(effect.counterType).toBe("+1/+1");
+      expect(effect.count).toBe(1);
+    }
+  });
+
+  it("should target a creature you control", () => {
+    const override = getCardOverride("Luminarch Aspirant")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].controller).toBe("you");
+    expect(override.spellTargets[0].targetTypes).toContain("creature");
+  });
+});
+
+describe("Champion of the Parish override", () => {
+  it("should put a +1/+1 counter on itself when another Human enters", () => {
+    const override = getCardOverride("Champion of the Parish")!;
+    expect(override).toBeDefined();
+    const abilities = override.getAbilities();
+    expect(abilities).toHaveLength(1);
+
+    const triggered = abilities[0] as SpellAbilityTriggered;
+    expect(triggered.type).toBe("triggered");
+    expect(triggered.triggerCondition.eventType).toBe("cardEnteredZone");
+    expect(triggered.triggerCondition.filter).toEqual({ subtypes: ["Human"] });
+    expect(triggered.triggerCondition.self).toBe(false);
+
+    const effect = triggered.effects[0];
+    expect(effect.type).toBe("addCounters");
+    if (effect.type === "addCounters") {
+      expect(effect.counterType).toBe("+1/+1");
+      expect(effect.count).toBe(1);
+      expect(effect.target.targetRequirementId).toBe("self");
+    }
+  });
+
+  it("should not require external targets", () => {
+    const override = getCardOverride("Champion of the Parish")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+// --- X spell cards ---
+
+describe("Fireball override", () => {
+  it("should deal X damage to any target", () => {
+    const override = getCardOverride("Fireball")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(1);
+
+    const effect = spell.effects[0];
+    expect(effect.type).toBe("dealDamage");
+    if (effect.type === "dealDamage") {
+      expect(effect.amount).toEqual({ variable: "X" });
+      expect(effect.to.targetRequirementId).toBe("fireball_t1");
+    }
+  });
+
+  it("should target any target (creature, planeswalker, player)", () => {
+    const override = getCardOverride("Fireball")!;
+    expect(override.spellTargets).toHaveLength(1);
+    expect(override.spellTargets[0].targetTypes).toContain("creature");
+    expect(override.spellTargets[0].targetTypes).toContain("planeswalker");
+    expect(override.spellTargets[0].targetTypes).toContain("player");
+  });
+});
+
+describe("Sphinx's Revelation override", () => {
+  it("should gain X life and draw X cards", () => {
+    const override = getCardOverride("Sphinx's Revelation")!;
+    expect(override).toBeDefined();
+    const spell = getSpellAbility(override.getAbilities());
+    expect(spell.effects).toHaveLength(2);
+
+    const gainLife = spell.effects.find((e) => e.type === "gainLife");
+    expect(gainLife).toBeDefined();
+    if (gainLife && gainLife.type === "gainLife") {
+      expect(gainLife.amount).toEqual({ variable: "X" });
+      expect(gainLife.player).toEqual({ type: "controller" });
+    }
+
+    const drawCards = spell.effects.find((e) => e.type === "drawCards");
+    expect(drawCards).toBeDefined();
+    if (drawCards && drawCards.type === "drawCards") {
+      expect(drawCards.count).toEqual({ variable: "X" });
+      expect(drawCards.player).toEqual({ type: "controller" });
+    }
+  });
+
+  it("should not require any targets", () => {
+    const override = getCardOverride("Sphinx's Revelation")!;
+    expect(override.spellTargets).toHaveLength(0);
+  });
+});
+
+// ===========================================================================
 // Override count validation
 // ===========================================================================
 
-describe("override registry — Phase 3 count", () => {
-  it("should have at least 46 overrides (15 Phase 2 + 5 lands + 5 Phase 3 creatures + 10 keyword creatures + 4 enchantment/artifact + 20 new Phase 3 creatures + Bonesplitter)", () => {
+describe("override registry — overall count", () => {
+  it("should have at least 81 overrides (previous 46 + 17 standard-instants + 10 aggro + 7 control + 5 midrange + 13 new-effect)", () => {
     const names = getOverrideNames();
-    expect(names.length).toBeGreaterThanOrEqual(46);
+    expect(names.length).toBeGreaterThanOrEqual(81);
   });
 });
 

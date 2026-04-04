@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@magic-flux/types": ["../types/src/index.ts"],
+      "@magic-flux/engine": ["../engine/src/index.ts"],
+      "@magic-flux/cards": ["../cards/src/index.ts"]
+    },
+    "rootDir": null
+  },
+  "include": ["src"]
+}
