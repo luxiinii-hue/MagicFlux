@@ -18,6 +18,7 @@ import { CardHover } from './components/CardHover';
 import { MulliganScreen } from './components/MulliganScreen';
 import { PromptOverlay } from './components/PromptOverlay';
 import { CombatPanel } from './components/CombatPanel';
+import { TargetingOverlay } from './components/TargetingOverlay';
 import { isPlayableLand, isCastableCard } from './interaction/targeting';
 import type { CardInstance, ClientGameState, TargetRequirement } from '@magic-flux/types';
 
@@ -115,9 +116,15 @@ export const App: FC = () => {
   const [showLog, setShowLog] = useState(true);
   const [validationErrors, setValidationErrors] = useState<readonly { message: string }[]>([]);
   const [lobbyGameId, setLobbyGameId] = useState<string | null>(null);
-  // Targeting state: which card is being cast and awaiting target selection
+  // Targeting state: tracks multi-target selection for spells
   const [castingCardId, setCastingCardId] = useState<string | null>(null);
+  const [selectedTargets, setSelectedTargets] = useState<import('@magic-flux/types').ResolvedTarget[]>([]);
   const targetRequirements = useGameStore((s) => s.targetRequirements);
+
+  // Which requirement index we're currently selecting for
+  const castingReqIndex = castingCardId ? selectedTargets.length : 0;
+  const castingAllReqs = castingCardId ? (targetRequirements[castingCardId] ?? []) : [];
+  const currentReq = castingAllReqs[castingReqIndex] ?? null;
 
   // Stable ref for the WebSocket connection — created once, never torn down by re-renders
   const wsConnRef = useRef<WebSocketConnection | null>(null);
@@ -181,6 +188,7 @@ export const App: FC = () => {
       if (e.key === 'Escape') {
         if (castingCardId) {
           setCastingCardId(null);
+          setSelectedTargets([]);
         } else if (interaction.mode !== 'idle') {
           dispatchInteraction({ type: 'CANCEL' });
         }
@@ -289,30 +297,40 @@ export const App: FC = () => {
     const card = gameState.cardInstances[instanceId];
     if (!card) return;
 
-    // If we're in targeting mode, clicking selects a target
-    if (castingCardId) {
-      const reqs = targetRequirements[castingCardId];
-      if (reqs && reqs.length > 0) {
-        const req = reqs[0]; // For now, handle single target requirement
-        const isValidTarget = isValidTargetForRequirement(card, instanceId, req, gameState, viewingPlayerId, cardDataMap);
-        if (isValidTarget) {
-          const targets: import('@magic-flux/types').ResolvedTarget[] = [{
-            requirementId: req.id,
-            targetId: instanceId,
-            targetType: 'card',
-          }];
-          sendAction({ type: 'castSpell', cardInstanceId: castingCardId, targets });
+    // If we're in targeting mode, clicking selects a target for the current requirement
+    if (castingCardId && currentReq) {
+      const isValidTarget = isValidTargetForRequirement(card, instanceId, currentReq, gameState, viewingPlayerId, cardDataMap);
+      if (isValidTarget) {
+        const newTarget: import('@magic-flux/types').ResolvedTarget = {
+          requirementId: currentReq.id,
+          targetId: instanceId,
+          targetType: 'card',
+        };
+        const allTargets = [...selectedTargets, newTarget];
+
+        if (allTargets.length >= castingAllReqs.length) {
+          // All targets selected — cast the spell
+          sendAction({ type: 'castSpell', cardInstanceId: castingCardId, targets: allTargets });
           setCastingCardId(null);
-          return;
+          setSelectedTargets([]);
+        } else {
+          // More targets needed — advance to next requirement
+          setSelectedTargets(allTargets);
         }
+        return;
       }
-      return; // Click on non-valid target does nothing
+      return; // Invalid target — do nothing
     }
+
+    // Helper: is this card a creature?
+    const isCreatureCard = card.modifiedPower !== null
+      || card.basePower !== null
+      || cardDataMap[card.cardDataId]?.typeLine?.toLowerCase().includes('creature');
 
     // Combat: declare attackers — toggle creatures as attackers
     if (interaction.mode === 'declareAttackers' && card.zone === 'Battlefield' && card.controller === viewingPlayerId) {
-      const isCreature = card.modifiedPower !== null || (cardDataMap[card.cardDataId]?.typeLine?.toLowerCase().includes('creature'));
-      if (isCreature && !card.tapped && !card.summoningSickness) {
+      if (isCreatureCard && !card.tapped) {
+        // Allow haste creatures (summoningSickness doesn't prevent if they have haste)
         dispatchInteraction({ type: 'TOGGLE_ATTACKER', creatureInstanceId: instanceId });
         return;
       }
@@ -320,14 +338,11 @@ export const App: FC = () => {
 
     // Combat: declare blockers — select blocker then assign to attacker
     if (interaction.mode === 'declareBlockers') {
-      const isCreature = card.modifiedPower !== null || (cardDataMap[card.cardDataId]?.typeLine?.toLowerCase().includes('creature'));
-      if (card.zone === 'Battlefield' && card.controller === viewingPlayerId && isCreature && !card.tapped) {
-        // Selecting a blocker
+      if (card.zone === 'Battlefield' && card.controller === viewingPlayerId && isCreatureCard && !card.tapped) {
         dispatchInteraction({ type: 'START_ASSIGN_BLOCKER', blockerInstanceId: instanceId });
         return;
       }
-      if (card.zone === 'Battlefield' && card.controller !== viewingPlayerId && isCreature) {
-        // Assigning blocker to an attacker
+      if (card.zone === 'Battlefield' && card.controller !== viewingPlayerId && isCreatureCard) {
         dispatchInteraction({ type: 'ASSIGN_BLOCKER_TO_ATTACKER', attackerInstanceId: instanceId });
         return;
       }
@@ -362,27 +377,27 @@ export const App: FC = () => {
       }
     }
 
-    if (selectedCards.includes(instanceId)) {
-      deselectCard(instanceId);
-    } else {
-      selectCard(instanceId);
-    }
+    // No action matched — do nothing (removed generic yellow-select that was confusing)
   };
 
   // Handle clicking on a player (for "any target" spells like Shock)
   const handlePlayerClick = (playerId: string) => {
-    if (!castingCardId) return;
-    const reqs = targetRequirements[castingCardId];
-    if (!reqs || reqs.length === 0) return;
-    const req = reqs[0];
-    if (!req.targetTypes.includes('player' as any)) return;
-    const targets: import('@magic-flux/types').ResolvedTarget[] = [{
-      requirementId: req.id,
+    if (!castingCardId || !currentReq) return;
+    if (!currentReq.targetTypes.includes('player' as any)) return;
+    const newTarget: import('@magic-flux/types').ResolvedTarget = {
+      requirementId: currentReq.id,
       targetId: playerId,
       targetType: 'player',
-    }];
-    sendAction({ type: 'castSpell', cardInstanceId: castingCardId, targets });
-    setCastingCardId(null);
+    };
+    const allTargets = [...selectedTargets, newTarget];
+
+    if (allTargets.length >= castingAllReqs.length) {
+      sendAction({ type: 'castSpell', cardInstanceId: castingCardId, targets: allTargets });
+      setCastingCardId(null);
+      setSelectedTargets([]);
+    } else {
+      setSelectedTargets(allTargets);
+    }
   };
 
   const handlePassPriority = () => {
@@ -420,21 +435,23 @@ export const App: FC = () => {
     : null;
 
   const castingCard = castingCardId ? gameState.cardInstances[castingCardId] : null;
-  const castingReqs = castingCardId ? targetRequirements[castingCardId] : undefined;
 
-  // Compute valid target card IDs for highlighting during targeting
+  // Compute valid target card IDs for highlighting during targeting (uses currentReq)
   const targetableCardIds: string[] = [];
-  if (castingCardId && castingReqs && castingReqs.length > 0) {
-    const req = castingReqs[0];
+  if (castingCardId && currentReq) {
     for (const [instanceId, card] of Object.entries(gameState.cardInstances)) {
-      if (isValidTargetForRequirement(card, instanceId, req, gameState, viewingPlayerId, cardDataMap)) {
+      if (isValidTargetForRequirement(card, instanceId, currentReq, gameState, viewingPlayerId, cardDataMap)) {
         targetableCardIds.push(instanceId);
       }
     }
   }
 
+  const targetProgress = castingCardId && castingAllReqs.length > 1
+    ? ` (${castingReqIndex + 1}/${castingAllReqs.length})`
+    : '';
+
   const statusText = castingCardId
-    ? `Select a target for ${castingCard?.cardDataId ?? 'spell'} (Escape to cancel)`
+    ? `${currentReq?.description ?? 'Select a target'}${targetProgress} — ${castingCard?.cardDataId ?? 'spell'} (Esc to cancel)`
     : hasPriority
       ? 'Your priority — take an action or pass'
       : priorityPlayerName
@@ -481,7 +498,8 @@ export const App: FC = () => {
               ]}
               onCardClick={handleCardClick}
               onPlayerClick={handlePlayerClick}
-              targetablePlayerIds={castingCardId && castingReqs?.[0]?.targetTypes.includes('player' as any) ? gameState.players.map(p => p.id) : []}
+              targetablePlayerIds={castingCardId && currentReq?.targetTypes.includes('player' as any) ? gameState.players.map(p => p.id) : []}
+              targetableCardIds={targetableCardIds}
               legalActions={legalActions}
             />
           </div>
@@ -521,7 +539,19 @@ export const App: FC = () => {
           gameState={gameState}
           viewingPlayerId={viewingPlayerId}
           legalActions={legalActions}
+          autoPassConfig={settings.autoPassConfig}
         />
+
+        {castingCardId && currentReq && (
+          <TargetingOverlay
+            castingCardName={castingCard?.cardDataId ?? 'Spell'}
+            currentReq={currentReq}
+            totalReqs={castingAllReqs.length}
+            currentReqIndex={castingReqIndex}
+            selectedTargets={selectedTargets}
+            visualMode={settings.targetingVisuals}
+          />
+        )}
 
         {(interaction.mode === 'declareAttackers' || interaction.mode === 'declareBlockers') && (
           <CombatPanel

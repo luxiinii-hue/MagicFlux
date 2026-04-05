@@ -66,14 +66,19 @@ describe('shouldAutoPass', () => {
       expect(shouldAutoPass(state, 'p1', actions)).toBe(false);
     });
 
-    it('should auto-pass during beginning phase upkeep', () => {
+    it('should auto-pass during beginning phase upkeep with no plays', () => {
       const state = withPhase(Phase.Beginning, Step.Upkeep);
-      expect(shouldAutoPass(state, 'p1', withSpell)).toBe(true);
+      expect(shouldAutoPass(state, 'p1', passOnly)).toBe(true);
     });
 
-    it('should auto-pass during ending phase', () => {
+    it('should STOP during beginning phase upkeep with instant available', () => {
+      const state = withPhase(Phase.Beginning, Step.Upkeep);
+      expect(shouldAutoPass(state, 'p1', withSpell)).toBe(false);
+    });
+
+    it('should auto-pass during ending phase with no plays', () => {
       const state = withPhase(Phase.Ending, Step.EndStep);
-      expect(shouldAutoPass(state, 'p1', withSpell)).toBe(true);
+      expect(shouldAutoPass(state, 'p1', passOnly)).toBe(true);
     });
 
     it('should STOP when stack has items on your turn', () => {

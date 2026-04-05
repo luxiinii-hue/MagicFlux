@@ -249,6 +249,10 @@ export interface CardOverrideEntry {
    * Used by the server to know what targets to prompt for.
    */
   readonly spellTargets: readonly TargetRequirement[];
+  /** Power string (e.g., "4", "*"). Used when Scryfall DB is not loaded. */
+  readonly power: string | null;
+  /** Toughness string (e.g., "4", "*"). Used when Scryfall DB is not loaded. */
+  readonly toughness: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -261,8 +265,10 @@ function register(
   name: string,
   getAbilities: () => SpellAbility[],
   spellTargets: readonly TargetRequirement[] = [],
+  power: string | null = null,
+  toughness: string | null = null,
 ): void {
-  overrides.set(name.toLowerCase(), { getAbilities, spellTargets });
+  overrides.set(name.toLowerCase(), { getAbilities, spellTargets, power, toughness });
 }
 
 // Phase 2 spell overrides
@@ -285,11 +291,11 @@ register("Mountain", mountainOverride);
 register("Forest", forestOverride);
 
 // Phase 3 creature overrides (creatures with special abilities beyond keywords)
-register("Elvish Visionary", elvishVisionaryOverride);
-register("Flametongue Kavu", flametongueKavuOverride, flametongueKavuTargets);
-register("Acidic Slime", acidicSlimeOverride, acidicSlimeTargets);
-register("Mulldrifter", mulldrifterOverride);
-register("Ravenous Chupacabra", ravenousChupacabraOverride, ravenousChupacabraTargets);
+register("Elvish Visionary", elvishVisionaryOverride, [], "1", "1");
+register("Flametongue Kavu", flametongueKavuOverride, flametongueKavuTargets, "4", "2");
+register("Acidic Slime", acidicSlimeOverride, acidicSlimeTargets, "2", "2");
+register("Mulldrifter", mulldrifterOverride, [], "2", "2");
+register("Ravenous Chupacabra", ravenousChupacabraOverride, ravenousChupacabraTargets, "2", "2");
 
 // Phase 3 enchantment/artifact overrides
 register("Oblivion Ring", oblivionRingOverride, oblivionRingTargets);
@@ -300,31 +306,31 @@ register("Bonesplitter", bonesplitterOverride, bonesplitterTargets);
 
 // Phase 3 additional creature overrides (20+ creatures)
 // White
-register("Wall of Omens", wallOfOmensOverride);
-register("Mother of Runes", motherOfRunesOverride, motherOfRunesTargets);
-register("Baneslayer Angel", baneslayerAngelOverride);
+register("Wall of Omens", wallOfOmensOverride, [], "0", "4");
+register("Mother of Runes", motherOfRunesOverride, motherOfRunesTargets, "1", "1");
+register("Baneslayer Angel", baneslayerAngelOverride, [], "5", "5");
 // Blue
-register("Snapcaster Mage", snapcasterMageOverride, snapcasterMageTargets);
-register("Delver of Secrets", delverOfSecretsOverride);
-register("Man-o'-War", manOWarOverride, manOWarTargets);
+register("Snapcaster Mage", snapcasterMageOverride, snapcasterMageTargets, "2", "1");
+register("Delver of Secrets", delverOfSecretsOverride, [], "1", "1");
+register("Man-o'-War", manOWarOverride, manOWarTargets, "2", "2");
 // Black
-register("Nether Spirit", netherSpiritOverride);
-register("Dark Confidant", darkConfidantOverride);
-register("Dread Shade", dreadShadeOverride);
+register("Nether Spirit", netherSpiritOverride, [], "2", "2");
+register("Dark Confidant", darkConfidantOverride, [], "2", "1");
+register("Dread Shade", dreadShadeOverride, [], "3", "3");
 // Red
-register("Lightning Mauler", lightningMaulerOverride);
-register("Ball Lightning", ballLightningOverride);
-register("Ember Hauler", emberHaulerOverride, emberHaulerTargets);
+register("Lightning Mauler", lightningMaulerOverride, [], "2", "1");
+register("Ball Lightning", ballLightningOverride, [], "6", "1");
+register("Ember Hauler", emberHaulerOverride, emberHaulerTargets, "2", "2");
 // Green
-register("Tarmogoyf", tarmogoyfOverride);
-register("Sylvan Caryatid", sylvanCaryatidOverride);
-register("Leatherback Baloth", leatherbackBalothOverride);
-register("Kalonian Tusker", kalonianTuskerOverride);
-register("Courser of Kruphix", courserOfKruphixOverride);
+register("Tarmogoyf", tarmogoyfOverride, [], "*", "1+*");
+register("Sylvan Caryatid", sylvanCaryatidOverride, [], "0", "3");
+register("Leatherback Baloth", leatherbackBalothOverride, [], "4", "5");
+register("Kalonian Tusker", kalonianTuskerOverride, [], "3", "3");
+register("Courser of Kruphix", courserOfKruphixOverride, [], "2", "4");
 // Multicolor
-register("Geist of Saint Traft", geistOfSaintTraftOverride);
-register("Kitchen Finks", kitchenFinksOverride);
-register("Bloodbraid Elf", bloodbraidElfOverride);
+register("Geist of Saint Traft", geistOfSaintTraftOverride, [], "2", "2");
+register("Kitchen Finks", kitchenFinksOverride, [], "3", "2");
+register("Bloodbraid Elf", bloodbraidElfOverride, [], "3", "2");
 
 // Phase 5 Standard instant/sorcery overrides
 register("Swords to Plowshares", swordsToPlowsharesOverride, swordsToPlowsharesTargets);
@@ -352,28 +358,28 @@ register("Boros Charm", borosCharmOverride);
 register("Lightning Helix", lightningHelixOverride, lightningHelixTargets);
 
 // Phase 4 keyword creature overrides (spell + keyword static abilities)
-register("Grizzly Bears", grizzlyBearsOverride);
-register("Serra Angel", serraAngelOverride);
-register("Llanowar Elves", llanowarElvesKeywordOverride);
-register("Goblin Guide", goblinGuideKeywordOverride);
-register("Giant Spider", giantSpiderOverride);
-register("Air Elemental", airElementalOverride);
-register("Vampire Nighthawk", vampireNighthawkOverride);
-register("Monastery Swiftspear", monasterySwiftspearOverride);
-register("Savannah Lions", savannahLionsOverride);
-register("Elvish Mystic", elvishMysticOverride);
+register("Grizzly Bears", grizzlyBearsOverride, [], "2", "2");
+register("Serra Angel", serraAngelOverride, [], "4", "4");
+register("Llanowar Elves", llanowarElvesKeywordOverride, [], "1", "1");
+register("Goblin Guide", goblinGuideKeywordOverride, [], "2", "2");
+register("Giant Spider", giantSpiderOverride, [], "2", "4");
+register("Air Elemental", airElementalOverride, [], "4", "4");
+register("Vampire Nighthawk", vampireNighthawkOverride, [], "2", "3");
+register("Monastery Swiftspear", monasterySwiftspearOverride, [], "1", "2");
+register("Savannah Lions", savannahLionsOverride, [], "2", "1");
+register("Elvish Mystic", elvishMysticOverride, [], "1", "1");
 
 // Phase 5 Group A: Aggro staples
-register("Eidolon of the Great Revel", eidolonOfTheGreatRevelOverride);
-register("Earthshaker Khenra", earthshakerKhenraOverride, earthshakerKhenraTargets);
-register("Thalia, Guardian of Thraben", thaliaOverride);
-register("Adanto Vanguard", adantoVanguardOverride);
-register("Benalish Marshal", benalishMarshalOverride);
-register("Experiment One", experimentOneOverride);
-register("Pelt Collector", peltCollectorOverride);
-register("Steel Leaf Champion", steelLeafChampionOverride);
-register("Burning-Tree Emissary", burningTreeEmissaryOverride);
-register("Gruul Spellbreaker", gruulSpellbreakerOverride);
+register("Eidolon of the Great Revel", eidolonOfTheGreatRevelOverride, [], "2", "2");
+register("Earthshaker Khenra", earthshakerKhenraOverride, earthshakerKhenraTargets, "2", "1");
+register("Thalia, Guardian of Thraben", thaliaOverride, [], "2", "1");
+register("Adanto Vanguard", adantoVanguardOverride, [], "1", "1");
+register("Benalish Marshal", benalishMarshalOverride, [], "3", "3");
+register("Experiment One", experimentOneOverride, [], "1", "1");
+register("Pelt Collector", peltCollectorOverride, [], "1", "1");
+register("Steel Leaf Champion", steelLeafChampionOverride, [], "5", "4");
+register("Burning-Tree Emissary", burningTreeEmissaryOverride, [], "2", "2");
+register("Gruul Spellbreaker", gruulSpellbreakerOverride, [], "3", "3");
 
 // Phase 5 Group B: Control staples
 register("Essence Scatter", essenceScatterOverride, essenceScatterTargets);
@@ -396,24 +402,24 @@ register("Raise the Alarm", raiseTheAlarmOverride);
 register("Dragon Fodder", dragonFodderOverride);
 register("Lingering Souls", lingeringSoulsOverride);
 register("Spectral Procession", spectralProcessionOverride);
-register("Young Pyromancer", youngPyromancerOverride);
-register("Sakura-Tribe Elder", sakuraTribeElderOverride);
+register("Young Pyromancer", youngPyromancerOverride, [], "2", "1");
+register("Sakura-Tribe Elder", sakuraTribeElderOverride, [], "1", "1");
 register("Village Rites", villageRitesOverride);
-register("Viscera Seer", visceraSeerOverride);
-register("Walking Ballista", walkingBallistaOverride, walkingBallistaTargets);
-register("Luminarch Aspirant", luminarchAspirantOverride, luminarchAspirantTargets);
-register("Champion of the Parish", championOfTheParishOverride);
+register("Viscera Seer", visceraSeerOverride, [], "1", "1");
+register("Walking Ballista", walkingBallistaOverride, walkingBallistaTargets, "0", "0");
+register("Luminarch Aspirant", luminarchAspirantOverride, luminarchAspirantTargets, "1", "1");
+register("Champion of the Parish", championOfTheParishOverride, [], "1", "1");
 register("Fireball", fireballOverride, fireballTargets);
 register("Sphinx's Revelation", sphinxsRevelationOverride);
 
 // Phase 5 sprint: additional cards (non-overlapping with aggro/control-staples)
-register("Monastery Mentor", monasteryMentorOverride);
-register("Goblin Rabblemaster", goblinRabblemasterOverride);
-register("Zurgo Bellstriker", zurgoBellstrikerOverride);
-register("Figure of Destiny", figureOfDestinyOverride);
-register("Ahn-Crop Crasher", ahnCropCrasherOverride, ahnCropCrasherTargets);
-register("Falkenrath Gorger", falkenrathGorgerOverride);
-register("Reckless Bushwhacker", recklessBushwhackerOverride);
+register("Monastery Mentor", monasteryMentorOverride, [], "2", "2");
+register("Goblin Rabblemaster", goblinRabblemasterOverride, [], "2", "2");
+register("Zurgo Bellstriker", zurgoBellstrikerOverride, [], "2", "2");
+register("Figure of Destiny", figureOfDestinyOverride, [], "1", "1");
+register("Ahn-Crop Crasher", ahnCropCrasherOverride, ahnCropCrasherTargets, "3", "2");
+register("Falkenrath Gorger", falkenrathGorgerOverride, [], "2", "1");
+register("Reckless Bushwhacker", recklessBushwhackerOverride, [], "2", "1");
 register("Chain Lightning", chainLightningOverride, chainLightningTargets);
 register("Lava Spike", lavaSpikeOverride, lavaSpikeTargets);
 register("Rift Bolt", riftBoltOverride, riftBoltTargets);
@@ -435,13 +441,13 @@ register("Treasure Cruise", treasureCruiseOverride);
 register("Collective Brutality", collectiveBrutalityOverride);
 register("Detention Sphere", detentionSphereOverride, detentionSphereTargets);
 register("Think Twice", thinkTwiceOverride);
-register("Thragtusk", thragtuskOverride);
-register("Restoration Angel", restorationAngelOverride, restorationAngelTargets);
-register("Scavenging Ooze", scavengingOozeOverride);
-register("Tireless Tracker", tirelessTrackerOverride);
-register("Eternal Witness", eternalWitnessOverride, eternalWitnessTargets);
-register("Voice of Resurgence", voiceOfResurgenceOverride);
-register("Hangarback Walker", hangarbackWalkerOverride);
+register("Thragtusk", thragtuskOverride, [], "5", "3");
+register("Restoration Angel", restorationAngelOverride, restorationAngelTargets, "3", "4");
+register("Scavenging Ooze", scavengingOozeOverride, [], "2", "2");
+register("Tireless Tracker", tirelessTrackerOverride, [], "3", "2");
+register("Eternal Witness", eternalWitnessOverride, eternalWitnessTargets, "2", "1");
+register("Voice of Resurgence", voiceOfResurgenceOverride, [], "2", "2");
+register("Hangarback Walker", hangarbackWalkerOverride, [], "0", "0");
 register("Aether Vial", aetherVialOverride);
 register("Chromatic Star", chromaticStarOverride);
 register("Rancor", rancorOverride);
@@ -462,18 +468,18 @@ register("Izzet Charm", izzetCharmOverride, izzetCharmTargets);
 register("Lightning Strike", lightningStrikeOverride, lightningStrikeTargets);
 register("Char", charOverride, charTargets);
 // Creatures
-register("Vendilion Clique", vendilionCliqueOverride);
-register("Spell Queller", spellQuellerOverride);
-register("Reflector Mage", reflectorMageOverride, reflectorMageTargets);
-register("Thought-Knot Seer", thoughtKnotSeerOverride);
-register("Gurmag Angler", gurmagAnglerOverride);
-register("Tasigur, the Golden Fang", tasigurOverride);
-register("Kalitas, Traitor of Ghet", kalitasOverride);
-register("Glorybringer", glorybringerOverride);
-register("Rekindling Phoenix", rekindlingPhoenixOverride);
-register("Questing Beast", questingBeastOverride);
-register("Polukranos, World Eater", polukranosOverride);
-register("Knight of Autumn", knightOfAutumnOverride);
+register("Vendilion Clique", vendilionCliqueOverride, [], "3", "1");
+register("Spell Queller", spellQuellerOverride, [], "2", "3");
+register("Reflector Mage", reflectorMageOverride, reflectorMageTargets, "2", "3");
+register("Thought-Knot Seer", thoughtKnotSeerOverride, [], "4", "4");
+register("Gurmag Angler", gurmagAnglerOverride, [], "5", "5");
+register("Tasigur, the Golden Fang", tasigurOverride, [], "4", "5");
+register("Kalitas, Traitor of Ghet", kalitasOverride, [], "3", "4");
+register("Glorybringer", glorybringerOverride, [], "4", "4");
+register("Rekindling Phoenix", rekindlingPhoenixOverride, [], "4", "3");
+register("Questing Beast", questingBeastOverride, [], "4", "4");
+register("Polukranos, World Eater", polukranosOverride, [], "5", "5");
+register("Knight of Autumn", knightOfAutumnOverride, [], "2", "1");
 // Enchantments/Artifacts
 register("Rest in Peace", restInPeaceOverride);
 register("Leyline of the Void", leylineOfTheVoidOverride);
@@ -495,12 +501,12 @@ register("Dissolve", dissolveOverride, dissolveTargets);
 register("Bone Shards", boneShardsOverride, boneShardsTargets);
 register("Searing Spear", searingSpearOverride, searingSpearTargets);
 register("Skullclamp", skullclampOverride);
-register("Thrun, the Last Troll", thrunOverride);
-register("Fleecemane Lion", fleecemaneLionOverride);
-register("Dragonlord Ojutai", dragonlordOjutaiOverride);
-register("Mantis Rider", mantisRiderOverride);
-register("Anafenza, the Foremost", anafenzaOverride);
-register("Grim Lavamancer", grimLavamancerOverride, grimLavamancerTargets);
+register("Thrun, the Last Troll", thrunOverride, [], "4", "4");
+register("Fleecemane Lion", fleecemaneLionOverride, [], "3", "3");
+register("Dragonlord Ojutai", dragonlordOjutaiOverride, [], "5", "4");
+register("Mantis Rider", mantisRiderOverride, [], "3", "3");
+register("Anafenza, the Foremost", anafenzaOverride, [], "4", "4");
+register("Grim Lavamancer", grimLavamancerOverride, grimLavamancerTargets, "1", "1");
 
 // Phase 6: Modern burn
 import {
@@ -575,22 +581,22 @@ register("Urza's Tower", urzasTowerOverride);
 register("Urza's Mine", urzasMineOverride);
 register("Urza's Power Plant", urzasPowerPlantOverride);
 // Modern Creatures
-register("Death's Shadow", deathsShadowOverride);
-register("Stoneforge Mystic", stoneforgeOverride);
-register("Primeval Titan", primevalTitanOverride);
-register("Wurmcoil Engine", wurmcoilEngineOverride);
-register("Noble Hierarch", nobleHierarchOverride);
-register("Birds of Paradise", birdsOfParadiseOverride);
-register("Emrakul, the Aeons Torn", emrakulAeonsTornOverride);
-register("Ulamog, the Ceaseless Hunger", ulamogCeaselessOverride);
-register("Karn Liberated", karnLiberatedOverride);
-register("Teferi, Hero of Dominaria", teferiHeroOverride);
-register("Huntmaster of the Fells", huntmasterOverride);
-register("Arcbound Ravager", arcboundRavagerOverride);
-register("Goblin Dark-Dwellers", goblinDarkDwellersOverride);
-register("Inferno Titan", infernoTitanOverride);
-register("Sun Titan", sunTitanOverride);
-register("Grave Titan", graveTitanOverride);
+register("Death's Shadow", deathsShadowOverride, [], "13", "13");
+register("Stoneforge Mystic", stoneforgeOverride, [], "1", "2");
+register("Primeval Titan", primevalTitanOverride, [], "6", "6");
+register("Wurmcoil Engine", wurmcoilEngineOverride, [], "6", "6");
+register("Noble Hierarch", nobleHierarchOverride, [], "0", "1");
+register("Birds of Paradise", birdsOfParadiseOverride, [], "0", "1");
+register("Emrakul, the Aeons Torn", emrakulAeonsTornOverride, [], "15", "15");
+register("Ulamog, the Ceaseless Hunger", ulamogCeaselessOverride, [], "10", "10");
+register("Karn Liberated", karnLiberatedOverride); // Planeswalker, not creature
+register("Teferi, Hero of Dominaria", teferiHeroOverride); // Planeswalker
+register("Huntmaster of the Fells", huntmasterOverride, [], "2", "2");
+register("Arcbound Ravager", arcboundRavagerOverride, [], "0", "0");
+register("Goblin Dark-Dwellers", goblinDarkDwellersOverride, [], "4", "4");
+register("Inferno Titan", infernoTitanOverride, [], "6", "6");
+register("Sun Titan", sunTitanOverride, [], "6", "6");
+register("Grave Titan", graveTitanOverride, [], "6", "6");
 
 // Phase 6: Commander staples
 import {
@@ -622,11 +628,11 @@ register("Thought Vessel", thoughtVesselOverride);
 register("Swiftfoot Boots", swiftfootBootsOverride, swiftfootBootsTargets);
 register("Sensei's Divining Top", senseisDiviningTopOverride);
 register("Mana Crypt", manaCryptOverride);
-register("Atraxa, Praetors' Voice", atraxaOverride);
-register("Edgar Markov", edgarMarkovOverride);
-register("Muldrotha, the Gravetide", muldrothaOverride);
-register("Korvold, Fae-Cursed King", korvoldOverride);
-register("Kenrith, the Returned King", kenrithOverride);
+register("Atraxa, Praetors' Voice", atraxaOverride, [], "4", "4");
+register("Edgar Markov", edgarMarkovOverride, [], "4", "4");
+register("Muldrotha, the Gravetide", muldrothaOverride, [], "6", "6");
+register("Korvold, Fae-Cursed King", korvoldOverride, [], "4", "4");
+register("Kenrith, the Returned King", kenrithOverride, [], "5", "5");
 
 // ---------------------------------------------------------------------------
 // Public API

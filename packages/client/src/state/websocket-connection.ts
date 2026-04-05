@@ -117,11 +117,13 @@ export class WebSocketConnection implements GameConnection, LobbyConnection {
   // ---------------------------------------------------------------------------
 
   createGame(format: string, maxPlayers: number, decklist: readonly DecklistEntry[]): void {
-    this.send({ type: 'lobby:createGame', payload: { format, maxPlayers, decklist } });
+    const playerName = localStorage.getItem('magic-flux-name') || undefined;
+    this.send({ type: 'lobby:createGame', payload: { format, maxPlayers, decklist, playerName } as any });
   }
 
   joinGame(gameId: string, decklist: readonly DecklistEntry[]): void {
-    this.send({ type: 'lobby:joinGame', payload: { gameId, decklist } });
+    const playerName = localStorage.getItem('magic-flux-name') || undefined;
+    this.send({ type: 'lobby:joinGame', payload: { gameId, decklist, playerName } as any });
   }
 
   leaveGame(gameId: string): void {

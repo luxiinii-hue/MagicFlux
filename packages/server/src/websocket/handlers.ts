@@ -82,6 +82,11 @@ function handleCreateGame(
   payload: CreateGameMessage["payload"],
   lobby: Lobby
 ): void {
+  // Update player name if provided
+  if ((payload as any).playerName) {
+    client.playerName = (payload as any).playerName;
+  }
+
   if (!VALID_FORMATS.includes(payload.format)) {
     client.send({
       type: "game:error",
@@ -137,6 +142,11 @@ function handleJoinGame(
   payload: JoinGameMessage["payload"],
   lobby: Lobby
 ): void {
+  // Update player name if provided
+  if ((payload as any).playerName) {
+    client.playerName = (payload as any).playerName;
+  }
+
   // Look up the game to get its format for validation
   const existingSession = lobby.getSession(payload.gameId);
   if (!existingSession) {

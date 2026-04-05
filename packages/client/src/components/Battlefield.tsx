@@ -8,6 +8,7 @@ interface BattlefieldProps {
   readonly cardDataMap: Readonly<Record<string, CardData>>;
   readonly selectedCards: readonly string[];
   readonly highlightedCards?: readonly string[];
+  readonly targetableCards?: readonly string[];
   readonly onCardClick: (instanceId: string) => void;
 }
 
@@ -16,6 +17,7 @@ export const Battlefield: FC<BattlefieldProps> = ({
   cardDataMap,
   selectedCards,
   highlightedCards = [],
+  targetableCards = [],
   onCardClick,
 }) => {
   return (
@@ -31,6 +33,7 @@ export const Battlefield: FC<BattlefieldProps> = ({
               instance={card}
               selected={selectedCards.includes(card.instanceId)}
               highlighted={highlightedCards.includes(card.instanceId)}
+              targetable={targetableCards.includes(card.instanceId)}
               onClick={() => onCardClick(card.instanceId)}
             />
           );

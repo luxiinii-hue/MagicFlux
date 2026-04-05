@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import type { PlayerAction, ClientGameState } from '@magic-flux/types';
 import { shouldAutoPass } from '../interaction/auto-pass';
+import type { AutoPassSettings } from '../state/settings';
 import styles from './PriorityBar.module.css';
 
 interface PriorityBarProps {
@@ -13,6 +14,7 @@ interface PriorityBarProps {
   readonly gameState: ClientGameState;
   readonly viewingPlayerId: string;
   readonly legalActions: readonly PlayerAction[];
+  readonly autoPassConfig: AutoPassSettings;
 }
 
 export const PriorityBar: FC<PriorityBarProps> = ({
@@ -24,6 +26,7 @@ export const PriorityBar: FC<PriorityBarProps> = ({
   gameState,
   viewingPlayerId,
   legalActions,
+  autoPassConfig,
 }) => {
   // Track whether we've already scheduled an auto-pass for this priority window.
   // Use a ref for the timer so re-renders don't cancel it.
@@ -47,7 +50,7 @@ export const PriorityBar: FC<PriorityBarProps> = ({
     // Don't schedule if one is already pending
     if (autoPassTimer.current) return;
 
-    const shouldPass = shouldAutoPass(gameState, viewingPlayerId, legalActions);
+    const shouldPass = shouldAutoPass(gameState, viewingPlayerId, legalActions, autoPassConfig);
 
     if (shouldPass) {
       autoPassTimer.current = setTimeout(() => {
@@ -82,7 +85,7 @@ export const PriorityBar: FC<PriorityBarProps> = ({
   let autoPassLabel = 'Auto-pass OFF';
   if (autoPass) {
     if (hasPriority) {
-      const wouldPass = shouldAutoPass(gameState, viewingPlayerId, legalActions);
+      const wouldPass = shouldAutoPass(gameState, viewingPlayerId, legalActions, autoPassConfig);
       autoPassLabel = wouldPass ? 'Auto-pass (passing...)' : 'Auto-pass (stopped)';
     } else {
       autoPassLabel = 'Auto-pass ON';

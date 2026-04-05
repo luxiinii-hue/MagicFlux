@@ -35,6 +35,7 @@ const defaultProps = {
   gameState: mockGameState,
   viewingPlayerId: 'p1',
   legalActions: [{ type: 'passPriority' as const }],
+  autoPassConfig: { stopAtMainPhase: true, stopAtAttackers: true, stopAtBlockers: true, yieldWhenNoActions: true, stopOnOpponentSpell: true, stopWithInstants: true },
 };
 
 describe('PriorityBar', () => {

@@ -31,6 +31,84 @@ function scryfallImageUrl(cardName: string, version: 'small' | 'normal' | 'large
   return `${SCRYFALL_IMAGE_BASE}?exact=${encoded}${setParam}&format=image&version=${version}`;
 }
 
+/**
+ * Known card type lines for type detection.
+ * Used when the Scryfall database isn't loaded.
+ */
+const KNOWN_TYPE_LINES: Record<string, string> = {
+  // Creatures
+  "Goblin Guide": "Creature — Goblin Scout",
+  "Monastery Swiftspear": "Creature — Human Monk",
+  "Eidolon of the Great Revel": "Enchantment Creature — Spirit",
+  "Grizzly Bears": "Creature — Bear",
+  "Serra Angel": "Creature — Angel",
+  "Llanowar Elves": "Creature — Elf Druid",
+  "Giant Spider": "Creature — Spider",
+  "Air Elemental": "Creature — Elemental",
+  "Vampire Nighthawk": "Creature — Vampire Shaman",
+  "Savannah Lions": "Creature — Cat",
+  "Elvish Mystic": "Creature — Elf Druid",
+  "Elvish Visionary": "Creature — Elf Shaman",
+  "Flametongue Kavu": "Creature — Kavu",
+  "Acidic Slime": "Creature — Ooze",
+  "Mulldrifter": "Creature — Elemental",
+  "Ravenous Chupacabra": "Creature — Beast Horror",
+  "Dark Confidant": "Creature — Human Wizard",
+  "Snapcaster Mage": "Creature — Human Wizard",
+  "Tarmogoyf": "Creature — Lhurgoyf",
+  "Goblin Rabblemaster": "Creature — Goblin Warrior",
+  "Young Pyromancer": "Creature — Human Shaman",
+  "Monastery Mentor": "Creature — Human Monk",
+  "Thalia, Guardian of Thraben": "Creature — Human Soldier",
+  "Siege Rhino": "Creature — Rhino",
+  "Thragtusk": "Creature — Beast",
+  "Restoration Angel": "Creature — Angel",
+  "Scavenging Ooze": "Creature — Ooze",
+  "Tireless Tracker": "Creature — Human Scout",
+  "Eternal Witness": "Creature — Human Shaman",
+  "Kitchen Finks": "Creature — Ouphe",
+  "Bloodbraid Elf": "Creature — Elf Berserker",
+  "Walking Ballista": "Artifact Creature — Construct",
+  "Hangarback Walker": "Artifact Creature — Construct",
+  "Sakura-Tribe Elder": "Creature — Snake Shaman",
+  "Viscera Seer": "Creature — Vampire Wizard",
+  "Luminarch Aspirant": "Creature — Human Cleric",
+  "Champion of the Parish": "Creature — Human Soldier",
+  // Instants
+  "Lightning Bolt": "Instant",
+  "Shock": "Instant",
+  "Counterspell": "Instant",
+  "Giant Growth": "Instant",
+  "Doom Blade": "Instant",
+  "Swords to Plowshares": "Instant",
+  "Path to Exile": "Instant",
+  // Sorceries
+  "Lava Spike": "Sorcery",
+  "Rift Bolt": "Sorcery",
+  "Divination": "Sorcery",
+  "Ponder": "Sorcery",
+  "Preordain": "Sorcery",
+  "Thoughtseize": "Sorcery",
+  // Enchantments
+  "Oblivion Ring": "Enchantment",
+  "Pacifism": "Enchantment — Aura",
+  "Rancor": "Enchantment — Aura",
+  // Artifacts
+  "Sol Ring": "Artifact",
+  "Bonesplitter": "Artifact — Equipment",
+  "Lightning Greaves": "Artifact — Equipment",
+  "Aether Vial": "Artifact",
+  // Lands
+  "Plains": "Basic Land — Plains",
+  "Island": "Basic Land — Island",
+  "Swamp": "Basic Land — Swamp",
+  "Mountain": "Basic Land — Mountain",
+  "Forest": "Basic Land — Forest",
+  // Planeswalkers
+  "Jace, the Mind Sculptor": "Legendary Planeswalker — Jace",
+  "Liliana of the Veil": "Legendary Planeswalker — Liliana",
+};
+
 /** Cache of dynamically created CardData entries keyed by card name. */
 const dynamicCardDataCache = new Map<string, CardData>();
 
@@ -49,7 +127,8 @@ export function getOrCreateCardData(
   const cached = dynamicCardDataCache.get(cardName);
   if (cached) return cached;
 
-  // Create minimal CardData with Scryfall image URLs
+  // Create minimal CardData with Scryfall image URLs and known type info
+  const typeLine = KNOWN_TYPE_LINES[cardName] ?? '';
   const cardData: CardData = {
     id: cardName,
     oracleId: cardName,
@@ -57,7 +136,7 @@ export function getOrCreateCardData(
     manaCost: null,
     parsedManaCost: null,
     cmc: 0,
-    typeLine: '',
+    typeLine,
     supertypes: [],
     cardTypes: [],
     subtypes: [],

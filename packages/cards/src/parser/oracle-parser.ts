@@ -335,8 +335,8 @@ interface ParsedEffect {
 }
 
 function parseEffectText(text: string, _cardData: CardData): ParsedEffect | null {
-  // --- Damage ---
-  const damageMatch = text.match(/deals? (\d+) damage to (any target|target ([\w\s]+?))\s*$/i);
+  // --- Damage --- (handles "~ deals N damage", "it deals N damage", "deals N damage")
+  const damageMatch = text.match(/(?:~|it)?\s*deals? (\d+) damage to (any target|target ([\w\s]+?))\s*$/i);
   if (damageMatch) {
     const amount = parseInt(damageMatch[1], 10);
     const targetDesc = damageMatch[2];
@@ -894,7 +894,7 @@ export function parseOracleText(oracleText: string, cardData: CardData): SpellAb
     }
 
     // Fallback: try parsing as a raw effect (for spell oracle text like "Destroy all creatures")
-    const rawEffect = parseEffectText(line, cardData);
+    const rawEffect = parseEffectText(stripTrailingDot(line), cardData);
     if (rawEffect) {
       abilities.push({
         type: "spell" as const,

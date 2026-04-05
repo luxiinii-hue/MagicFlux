@@ -36,6 +36,7 @@ export const Lobby: FC<LobbyProps> = ({
   validationErrors,
   gameId,
 }) => {
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem('magic-flux-name') ?? '');
   const [format, setFormat] = useState('standard');
   const [deckText, setDeckText] = useState(DEFAULT_DECKLIST);
   const [joinGameId, setJoinGameId] = useState('');
@@ -90,6 +91,22 @@ export const Lobby: FC<LobbyProps> = ({
       <div className={styles.subtitle}>
         Connection: {connectionStatus}
         {gameId && <> | Game: {gameId}</>}
+      </div>
+
+      <div className={styles.panel}>
+        <div className={styles.panelTitle}>Player</div>
+        <div className={styles.field}>
+          <span className={styles.label}>Your Name</span>
+          <input
+            className={styles.input}
+            value={playerName}
+            onChange={(e) => {
+              setPlayerName(e.target.value);
+              localStorage.setItem('magic-flux-name', e.target.value);
+            }}
+            placeholder="Enter your name..."
+          />
+        </div>
       </div>
 
       <div className={styles.modeToggle}>

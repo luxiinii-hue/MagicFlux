@@ -13,6 +13,7 @@ interface CardViewProps {
   readonly playable?: boolean;
   readonly attacking?: boolean;
   readonly eligible?: boolean;
+  readonly targetable?: boolean;
   readonly dimmed?: boolean;
   readonly onClick?: () => void;
   readonly onDragStart?: (e: React.DragEvent) => void;
@@ -29,6 +30,7 @@ export const CardView: FC<CardViewProps> = ({
   playable = false,
   attacking = false,
   eligible = false,
+  targetable = false,
   dimmed = false,
   onClick,
   onDragStart,
@@ -46,6 +48,7 @@ export const CardView: FC<CardViewProps> = ({
     playable ? styles.playable : '',
     attacking ? styles.attacking : '',
     eligible ? styles.eligible : '',
+    targetable ? styles.targetable : '',
     dimmed ? styles.dimmed : '',
   ].filter(Boolean).join(' ');
 

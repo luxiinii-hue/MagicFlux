@@ -229,6 +229,8 @@ export function instantiateCard(
   // Resolve abilities from the override registry
   const abilities = resolveAbilities(cardData, instanceId);
 
+  const isLegendary = cardData.supertypes.includes("Legendary");
+
   return {
     instanceId,
     cardDataId: cardData.id,
@@ -247,6 +249,9 @@ export function instantiateCard(
     attachedTo: null,
     attachments: [],
     abilities,
+    basePower,
+    baseToughness,
+    isLegendary,
     modifiedPower: basePower,
     modifiedToughness: baseToughness,
     currentLoyalty: baseLoyalty,
