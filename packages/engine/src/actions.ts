@@ -20,7 +20,7 @@ import type {
   CastingChoices,
   ManaPaymentPlan,
 } from "@magic-flux/types";
-import { Phase, ZoneType } from "@magic-flux/types";
+import { Phase, Step, ZoneType } from "@magic-flux/types";
 import {
   passPriority as passPriorityFn,
   allPlayersPassed,
@@ -32,9 +32,14 @@ import { addManaToPlayer, getPlayer, canPayCost } from "./mana/pool.js";
 import { pushToStack, resolveTopOfStack } from "./stack/stack.js";
 import { validateTargetsOnCast } from "./stack/targeting.js";
 import { payManaCost } from "./mana/payment.js";
+import { applySearchResult, performCounter } from "./stack/resolution.js";
 import { declareAttackers } from "./combat/attackers.js";
 import { declareBlockers } from "./combat/blockers.js";
 import { calculateCombatDamage, applyCombatDamage } from "./combat/damage.js";
+import {
+  canActivateLoyaltyAbility,
+  activateLoyaltyAbility,
+} from "./planeswalker.js";
 
 // ---------------------------------------------------------------------------
 // Error helpers
@@ -69,6 +74,8 @@ export function executeAction(
       return handleDeclareAttackers(state, action);
     case "declareBlockers":
       return handleDeclareBlockers(state, action);
+    case "makeChoice":
+      return handleMakeChoice(state, action);
     case "concede":
       return handleConcede(state);
     default:
@@ -216,16 +223,45 @@ function handleActivateAbility(
     return fail("NOT_ON_BATTLEFIELD", "Card must be on the battlefield");
   }
 
-  if (card.tapped) {
+  // Only check tapped for abilities that require tap as cost
+  // (mana abilities and tap-symbol abilities). Non-tap abilities
+  // like loyalty abilities can be activated while tapped.
+  const requestedAbility = card.abilities.find((a) => a.id === abilityId);
+  const requiresTap = abilityId === "mana" ||
+    (requestedAbility?.type === "mana") ||
+    (requestedAbility?.type === "activated" && (requestedAbility as any).cost?.tapSelf);
+  if (card.tapped && requiresTap) {
     return fail("ALREADY_TAPPED", "This permanent is already tapped");
   }
 
-  // Phase 1: only basic land mana abilities
+  // Mana abilities (don't use the stack)
   if (abilityId === "mana") {
     return handleBasicLandMana(state, card, playerId);
   }
 
-  return fail("NOT_IMPLEMENTED", `Ability "${abilityId}" not yet implemented`);
+  // Check if this is a mana ability from the card's abilities
+  const manaAbility = card.abilities.find((a) => a.type === "mana" && a.id === abilityId);
+  if (manaAbility) {
+    return handleBasicLandMana(state, card, playerId);
+  }
+
+  // Loyalty abilities (planeswalkers)
+  if (card.currentLoyalty !== null) {
+    const loyaltyCheck = canActivateLoyaltyAbility(state, cardInstanceId, abilityId, playerId);
+    if (loyaltyCheck.canActivate) {
+      return handleLoyaltyAbility(state, cardInstanceId, abilityId, playerId);
+    } else {
+      return fail("CANNOT_ACTIVATE", loyaltyCheck.reason ?? "Cannot activate loyalty ability");
+    }
+  }
+
+  // General activated abilities — put on the stack
+  const ability = card.abilities.find((a) => a.id === abilityId && a.type === "activated");
+  if (ability) {
+    return handleGenericActivatedAbility(state, card, ability, playerId);
+  }
+
+  return fail("ABILITY_NOT_FOUND", `Ability "${abilityId}" not found on card ${cardInstanceId}`);
 }
 
 function handleBasicLandMana(
@@ -257,6 +293,77 @@ function handleBasicLandMana(
 
   // Mana abilities don't reset consecutive passes or use the stack
   return { success: true, state: newState, events };
+}
+
+// ---------------------------------------------------------------------------
+// loyalty abilities
+// ---------------------------------------------------------------------------
+
+function handleLoyaltyAbility(
+  state: GameState,
+  cardInstanceId: string,
+  abilityId: string,
+  playerId: string,
+): ActionResult {
+  const card = state.cardInstances[cardInstanceId];
+  if (!card) return fail("CARD_NOT_FOUND", "Card not found");
+
+  // Pay loyalty cost and mark as used
+  const loyaltyResult = activateLoyaltyAbility(state, cardInstanceId, abilityId, playerId);
+  let newState = loyaltyResult.state;
+  const events = [...loyaltyResult.events];
+
+  // Find the ability and put it on the stack
+  const ability = card.abilities.find((a) => a.id === abilityId);
+  if (!ability) return fail("ABILITY_NOT_FOUND", "Ability not found");
+
+  const stackItemId = `stack_${Date.now()}_${abilityId}`;
+  const stackItem: StackItem = {
+    id: stackItemId,
+    sourceCardInstanceId: cardInstanceId,
+    ability,
+    controller: playerId,
+    targets: [],
+    isSpell: false,
+    isCopy: false,
+    choices: null,
+  };
+
+  const pushResult = pushToStack(newState, stackItem);
+  newState = pushResult.state;
+  events.push(...pushResult.events);
+
+  return { success: true, state: newState, events };
+}
+
+// ---------------------------------------------------------------------------
+// generic activated abilities (non-mana, non-loyalty)
+// ---------------------------------------------------------------------------
+
+function handleGenericActivatedAbility(
+  state: GameState,
+  card: CardInstance,
+  ability: SpellAbility,
+  playerId: string,
+): ActionResult {
+  const stackItemId = `stack_${Date.now()}_${ability.id}`;
+  const stackItem: StackItem = {
+    id: stackItemId,
+    sourceCardInstanceId: card.instanceId,
+    ability,
+    controller: playerId,
+    targets: [],
+    isSpell: false,
+    isCopy: false,
+    choices: null,
+  };
+
+  const pushResult = pushToStack(state, stackItem);
+  return {
+    success: true,
+    state: { ...pushResult.state, consecutivePasses: 0 },
+    events: pushResult.events,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -315,12 +422,24 @@ function handleCastSpell(
     return fail("CARD_NOT_FOUND", `Card ${action.cardInstanceId} not found`);
   }
 
-  // Card must be in hand (or another legal cast zone — hand for now)
+  // Card must be in hand, or in graveyard with flashback
+  const isFlashbackCast = action.choices?.alternativeCostUsed === "flashback";
   const hKey = handKey(playerId);
   const hand = state.zones[hKey];
-  if (!hand || !hand.cardInstanceIds.includes(action.cardInstanceId)) {
-    return fail("CARD_NOT_IN_HAND", "Card is not in your hand");
+  const gKey = `player:${playerId}:graveyard`;
+  const graveyard = state.zones[gKey];
+
+  const inHand = hand?.cardInstanceIds.includes(action.cardInstanceId);
+  const inGraveyard = graveyard?.cardInstanceIds.includes(action.cardInstanceId);
+  const commandZone = state.zones["commandZone"];
+  const inCommandZone = commandZone?.cardInstanceIds.includes(action.cardInstanceId);
+
+  if (!inHand && !(isFlashbackCast && inGraveyard) && !inCommandZone) {
+    return fail("CARD_NOT_IN_HAND", "Card is not in a legal zone for casting");
   }
+
+  // Determine which zone the card is being cast from
+  const castFromZone = inHand ? hKey : inCommandZone ? "commandZone" : gKey;
 
   // Find the spell ability on the card
   const spellAbility = card.abilities.find((a) => a.type === "spell");
@@ -359,7 +478,7 @@ function handleCastSpell(
   }
 
   // Move card from hand to stack
-  const moveResult = moveCard(newState, action.cardInstanceId, hKey, "stack", Date.now());
+  const moveResult = moveCard(newState, action.cardInstanceId, castFromZone, "stack", Date.now());
   newState = moveResult.state;
   allEvents.push(...moveResult.events);
 
@@ -381,6 +500,27 @@ function handleCastSpell(
   newState = pushResult.state;
   allEvents.push(...pushResult.events);
 
+  // Commander tax: if casting from command zone, increment tax
+  if (inCommandZone) {
+    const updatedPlayers = newState.players.map((p) =>
+      p.id === playerId ? { ...p, commanderTax: p.commanderTax + 1 } : p,
+    );
+    newState = { ...newState, players: updatedPlayers };
+  }
+
+  // Increment spells cast this turn counter
+  const currentCount = (newState.turnFlags.spellsCastThisTurn as Record<string, number>)[playerId] ?? 0;
+  newState = {
+    ...newState,
+    turnFlags: {
+      ...newState.turnFlags,
+      spellsCastThisTurn: {
+        ...newState.turnFlags.spellsCastThisTurn,
+        [playerId]: currentCount + 1,
+      },
+    },
+  };
+
   return { success: true, state: newState, events: allEvents };
 }
 
@@ -394,6 +534,120 @@ function getCardManaCost(card: CardInstance): ManaCost | null {
   // via the card's abilities or the action's payment plan.
   // For now, return null — the payment plan handles deduction directly.
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// makeChoice (respond to PendingPrompt)
+// ---------------------------------------------------------------------------
+
+function handleMakeChoice(
+  state: GameState,
+  action: Extract<PlayerAction, { type: "makeChoice" }>,
+): ActionResult {
+  const prompt = state.pendingPrompt;
+  if (!prompt) {
+    return fail("NO_PROMPT", "No pending prompt to respond to");
+  }
+
+  if (action.choiceId !== prompt.promptId) {
+    return fail("WRONG_PROMPT", "Choice ID does not match pending prompt");
+  }
+
+  const events: GameEvent[] = [];
+
+  // Clear the prompt
+  let newState: GameState = { ...state, pendingPrompt: null };
+
+  if (prompt.promptType === "searchLibrary") {
+    const chosenCardId = action.selection as string | null;
+
+    if (chosenCardId && prompt.options.includes(chosenCardId)) {
+      // Move chosen card from its current zone to hand
+      const card = newState.cardInstances[chosenCardId];
+      if (card) {
+        let fromZoneKey: string | null = null;
+        for (const [key, zone] of Object.entries(newState.zones)) {
+          if (zone.cardInstanceIds.includes(chosenCardId)) {
+            fromZoneKey = key;
+            break;
+          }
+        }
+        if (fromZoneKey) {
+          const moveResult = moveCard(
+            newState, chosenCardId, fromZoneKey, handKey(card.owner), Date.now(),
+          );
+          newState = moveResult.state;
+          events.push(...moveResult.events);
+        }
+      }
+    }
+    // If no selection (fail to find), just continue
+  }
+
+  if (prompt.promptType === "scry") {
+    // Selection is an array of card IDs to put on bottom of library.
+    // Cards NOT in the selection stay on top in their current order.
+    const bottomCards = (action.selection as string[] | null) ?? [];
+    const libKey = `player:${prompt.playerId}:library`;
+    const library = newState.zones[libKey];
+
+    if (library) {
+      const topSection = prompt.options; // The cards that were scried
+      const restOfLibrary = library.cardInstanceIds.slice(topSection.length);
+
+      // Cards staying on top (in original order, minus those going to bottom)
+      const stayOnTop = topSection.filter((id) => !bottomCards.includes(id));
+      // Cards going to bottom
+      const goToBottom = topSection.filter((id) => bottomCards.includes(id));
+
+      // Reconstruct library: top cards first, then rest, then bottom cards
+      const newLibrary = [...stayOnTop, ...restOfLibrary, ...goToBottom];
+
+      newState = {
+        ...newState,
+        zones: {
+          ...newState.zones,
+          [libKey]: { ...library, cardInstanceIds: newLibrary },
+        },
+      };
+    }
+  }
+
+  if (prompt.promptType === "chooseCard" && (prompt as any).discardFromPlayerId) {
+    // Hand-reveal-choose response (Thoughtseize, Duress, Inquisition)
+    const selections = Array.isArray(action.selection)
+      ? action.selection as string[]
+      : action.selection ? [action.selection as string] : [];
+    const opponentId = (prompt as any).discardFromPlayerId as string;
+    const hKey = `player:${opponentId}:hand`;
+
+    for (const cardId of selections) {
+      const hand = newState.zones[hKey];
+      if (!hand || !hand.cardInstanceIds.includes(cardId)) continue;
+      const gKey = `player:${opponentId}:graveyard`;
+      const moveResult = moveCard(newState, cardId, hKey, gKey, Date.now());
+      newState = moveResult.state;
+      events.push(...moveResult.events);
+    }
+  }
+
+  if (prompt.promptType === "chooseMode" && (prompt as any).counterTargetStackItemId) {
+    // Counter-unless-pay response
+    const choice = action.selection as string;
+    const targetItemId = (prompt as any).counterTargetStackItemId as string;
+
+    if (choice === "decline" || choice === null) {
+      // Opponent declined to pay — counter the spell
+      newState = performCounter(newState, targetItemId, events);
+    }
+    // If "pay", spell is NOT countered — it stays on the stack and resolves normally.
+    // In a full implementation, we'd also deduct the mana. For now, trust the client.
+  }
+
+  // Restore priority to the active player
+  newState = grantPriority(newState, newState.activePlayerId);
+
+  return { success: true, state: newState, events };
 }
 
 // ---------------------------------------------------------------------------
@@ -448,6 +702,16 @@ export function getLegalActions(
   playerId: string,
 ): PlayerAction[] {
   const actions: PlayerAction[] = [];
+
+  // If there's a pending prompt for this player, only makeChoice is legal
+  if (state.pendingPrompt && state.pendingPrompt.playerId === playerId) {
+    actions.push({
+      type: "makeChoice",
+      choiceId: state.pendingPrompt.promptId,
+      selection: null, // Client fills this in
+    });
+    return actions;
+  }
 
   // Can only act when you have priority
   if (state.priorityPlayerId !== playerId) {
@@ -510,6 +774,55 @@ export function getLegalActions(
     }
   }
 
+  // Commander: can cast commander from command zone (sorcery speed for creatures)
+  if (state.format === "commander") {
+    const commandZone = state.zones["commandZone"];
+    if (commandZone && isActivePlayer && isMainPhase && stackEmpty) {
+      for (const cardId of commandZone.cardInstanceIds) {
+        const card = state.cardInstances[cardId];
+        if (!card || card.owner !== playerId) continue;
+        const hasSpellAbility = card.abilities.some((a) => a.type === "spell");
+        if (hasSpellAbility) {
+          actions.push({
+            type: "castSpell",
+            cardInstanceId: cardId,
+          });
+        }
+      }
+    }
+  }
+
+  // Flashback: check graveyard for cards with flashback that can be cast
+  const gKey = `player:${playerId}:graveyard`;
+  const graveyard = state.zones[gKey];
+  if (graveyard) {
+    for (const cardId of graveyard.cardInstanceIds) {
+      const card = state.cardInstances[cardId];
+      if (!card) continue;
+
+      // Check if card has a spell ability AND flashback keyword/ability
+      const hasSpellAbility = card.abilities.some((a) => a.type === "spell");
+      const hasFlashback = card.abilities.some(
+        (a) => (a.type === "static" && a.continuousEffect?.effectType === "flashback") ||
+          (a.type === "activated" && (a as any).activationRestrictions?.includes("flashback")),
+      ) || card.abilities.some((a) => a.zones?.includes(ZoneType.Graveyard) && a.type === "spell");
+
+      if (hasSpellAbility && hasFlashback) {
+        actions.push({
+          type: "castSpell",
+          cardInstanceId: cardId,
+          choices: {
+            xValue: null,
+            kickerPaid: false,
+            additionalKickersPaid: [],
+            chosenModes: [],
+            alternativeCostUsed: "flashback",
+          },
+        });
+      }
+    }
+  }
+
   // Mana abilities: untapped basic lands on battlefield
   const battlefield = state.zones["battlefield"];
   if (battlefield) {
@@ -526,6 +839,65 @@ export function getLegalActions(
           cardInstanceId: cardId,
           abilityId: "mana",
         });
+      }
+    }
+  }
+
+  // declareAttackers: during DeclareAttackers step, active player, stack empty
+  if (
+    state.turnState.phase === Phase.Combat &&
+    state.turnState.step === Step.DeclareAttackers &&
+    isActivePlayer &&
+    stackEmpty &&
+    !state.turnState.hasDeclaredAttackers
+  ) {
+    actions.push({
+      type: "declareAttackers",
+      attackerAssignments: {}, // Client fills in actual assignments
+    });
+  }
+
+  // declareBlockers: during DeclareBlockers step, defending player (non-active), stack empty
+  if (
+    state.turnState.phase === Phase.Combat &&
+    state.turnState.step === Step.DeclareBlockers &&
+    !isActivePlayer &&
+    stackEmpty &&
+    !state.turnState.hasDeclaredBlockers
+  ) {
+    actions.push({
+      type: "declareBlockers",
+      blockerAssignments: {}, // Client fills in actual assignments
+    });
+  }
+
+  // activateAbility: non-mana activated abilities on battlefield permanents
+  if (battlefield) {
+    for (const cardId of battlefield.cardInstanceIds) {
+      const card = state.cardInstances[cardId];
+      if (!card || card.controller !== playerId) continue;
+
+      for (const ability of card.abilities) {
+        // Skip mana abilities (already handled above) and non-activated types
+        if (ability.type === "mana" || ability.type !== "activated") continue;
+
+        actions.push({
+          type: "activateAbility",
+          cardInstanceId: cardId,
+          abilityId: ability.id,
+        });
+      }
+
+      // Planeswalker loyalty abilities
+      if (card.currentLoyalty !== null && isMainPhase && isActivePlayer && stackEmpty) {
+        for (const ability of card.abilities) {
+          if (ability.type !== "activated") continue;
+          actions.push({
+            type: "activateAbility",
+            cardInstanceId: cardId,
+            abilityId: ability.id,
+          });
+        }
       }
     }
   }

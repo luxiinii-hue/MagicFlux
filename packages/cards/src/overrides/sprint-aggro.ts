@@ -50,10 +50,12 @@ export function thaliaOverride(): SpellAbility[] {
 }
 
 // --- Eidolon of the Great Revel: Whenever a player casts a spell with CMC 3 or less, deal 2 damage to that player ---
+// Note: "that player" refers to the caster of the triggering spell, which isn't expressible
+// via TargetRef. Needs engine custom handler that reads the triggering event's playerId.
 export function eidolonOfTheGreatRevelOverride(): SpellAbility[] {
   return [{
     type: "triggered", id: "eidolon_trigger", sourceCardInstanceId: null,
-    effects: [{ type: "dealDamage", amount: 2, to: { targetRequirementId: "eidolon_caster" } }],
+    effects: [{ type: "custom", resolveFunction: "eidolon_damage_caster" }],
     zones: [ZoneType.Battlefield],
     triggerCondition: { eventType: "spellCast", filter: { cmc: { op: "lte", value: 3 } }, self: false, optional: false, interveningIf: null },
     targets: [],

@@ -196,9 +196,30 @@ export function applyCombatDamage(
     if (player) {
       // Damage to player
       const newLife = player.life - assignment.amount;
-      const updatedPlayers = currentState.players.map((p) =>
+      let updatedPlayers = currentState.players.map((p) =>
         p.id === assignment.targetId ? { ...p, life: newLife } : p,
       );
+
+      // Commander damage tracking: if the source is a commander, track per-commander
+      if (currentState.format === "commander" && source.instanceId) {
+        const isCommander = currentState.players.some(
+          (p) => p.commanderId === source.instanceId,
+        );
+        if (isCommander) {
+          updatedPlayers = updatedPlayers.map((p) => {
+            if (p.id !== assignment.targetId) return p;
+            const currentDmg = p.commanderDamageReceived[source.instanceId] ?? 0;
+            return {
+              ...p,
+              commanderDamageReceived: {
+                ...p.commanderDamageReceived,
+                [source.instanceId]: currentDmg + assignment.amount,
+              },
+            };
+          });
+        }
+      }
+
       currentState = { ...currentState, players: updatedPlayers };
 
       events.push({

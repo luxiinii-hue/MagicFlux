@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import type { CardData, CardInstance } from '@magic-flux/types';
 import { getCardImageUrl } from '../rendering/card-images';
+import { showCardHover, hideCardHover } from './CardHover';
 import styles from './CardView.module.css';
 
 interface CardViewProps {
@@ -57,6 +58,9 @@ export const CardView: FC<CardViewProps> = ({
       onClick={onClick}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onMouseEnter={(e) => showCardHover(cardData, e.clientX, e.clientY)}
+      onMouseMove={(e) => showCardHover(cardData, e.clientX, e.clientY)}
+      onMouseLeave={() => hideCardHover()}
       draggable={draggable}
       role="button"
       tabIndex={0}

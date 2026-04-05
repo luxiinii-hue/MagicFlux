@@ -115,7 +115,7 @@ describe("GameSession", () => {
     session.addPlayer("p2", "Player 2", makePlainsDeck(), c2.connection);
 
     expect(session.canStart()).toBe(true);
-    session.start(42);
+    session.start(42, true);
     expect(session.getStatus()).toBe("active");
 
     const state = session.getState();
@@ -131,7 +131,7 @@ describe("GameSession", () => {
 
     session.addPlayer("p1", "Player 1", makePlainsDeck(), c1.connection);
     session.addPlayer("p2", "Player 2", makePlainsDeck(), c2.connection);
-    session.start(42);
+    session.start(42, true);
 
     // P1 is the active player, should get state update and legal actions
     const state = c1.getLastState();
@@ -151,7 +151,7 @@ describe("GameSession", () => {
 
     session.addPlayer("p1", "Player 1", makePlainsDeck(), c1.connection);
     session.addPlayer("p2", "Player 2", makePlainsDeck(), c2.connection);
-    session.start(42);
+    session.start(42, true);
 
     // P2 should not be able to act (P1 has priority)
     c2.clearMessages();
@@ -168,7 +168,7 @@ describe("GameSession", () => {
 
     session.addPlayer("p1", "Player 1", makePlainsDeck(), c1.connection);
     session.addPlayer("p2", "Player 2", makePlainsDeck(), c2.connection);
-    session.start(42);
+    session.start(42, true);
 
     const p1State = c1.getLastState()!;
     const p1Hand = p1State.zones["player:p1:hand"];
@@ -191,7 +191,7 @@ describe("GameSession", () => {
 
     session.addPlayer("p1", "Player 1", makePlainsDeck(), c1.connection);
     session.addPlayer("p2", "Player 2", makePlainsDeck(), c2.connection);
-    session.start(42);
+    session.start(42, true);
 
     // Get initial state
     const initialState = session.getState()!;
@@ -226,7 +226,7 @@ describe("GameSession", () => {
 
     session.addPlayer("p1", "Player 1", makePlainsDeck(), c1.connection);
     session.addPlayer("p2", "Player 2", makePlainsDeck(), c2.connection);
-    session.start(42);
+    session.start(42, true);
 
     // P1 concedes (concede is always legal regardless of priority)
     session.handleAction("p1", { type: "concede" });

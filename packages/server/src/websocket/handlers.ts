@@ -67,11 +67,7 @@ export function handleClientMessage(
       handleGameAction(client, message.payload, lobby);
       break;
     case "game:promptResponse":
-      // TODO: implement prompt responses
-      client.send({
-        type: "game:error",
-        payload: { code: "NOT_IMPLEMENTED", message: "Prompt responses not yet implemented" },
-      });
+      handlePromptResponse(client, message.payload, lobby);
       break;
     default:
       client.send({
@@ -188,22 +184,45 @@ function handleJoinGame(
     return;
   }
 
-  // Notify all players
-  const players = session.getPlayerIds().map((id) => ({
-    id,
-    name: id, // Simplified — would use actual names
-  }));
-
   // If game is ready to start (enough players), auto-start
   if (session.canStart()) {
-    session.start();
+    const allPlayers = session.getPlayerIds().map((id) => ({
+      id,
+      name: id,
+    }));
 
-    // Notify players that game is starting
-    // The session.start() call triggers state broadcast internally
-    client.send({
-      type: "lobby:gameStarting",
-      payload: { gameId: session.gameId, players },
-    });
+    // Notify ALL players BEFORE starting — clients wire game callbacks
+    // on this message, so state updates from start() will reach them.
+    // Send individually with "you first" ordering so clients can identify
+    // their own player via players[0].
+    for (const pid of session.getPlayerIds()) {
+      const reordered = [
+        allPlayers.find((p) => p.id === pid)!,
+        ...allPlayers.filter((p) => p.id !== pid),
+      ];
+      session.sendToPlayer(pid, {
+        type: "lobby:gameStarting",
+        payload: { gameId: session.gameId, players: reordered },
+      });
+    }
+
+    // Now start — state updates will reach already-wired clients
+    try {
+      session.start();
+    } catch (err) {
+      console.error(JSON.stringify({
+        event: "session_start_error",
+        gameId: session.gameId,
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        timestamp: new Date().toISOString(),
+      }));
+      // Notify players of the failure
+      session.broadcastToAll({
+        type: "game:error",
+        payload: { code: "START_FAILED", message: "Failed to start game — engine error" },
+      });
+    }
   }
 }
 
@@ -238,4 +257,35 @@ function handleGameAction(
   }
 
   session.handleAction(client.clientId, payload.action);
+}
+
+function handlePromptResponse(
+  client: ConnectedClient,
+  payload: { gameId: string; promptId: string; selection: unknown },
+  lobby: Lobby
+): void {
+  const session = lobby.getSession(payload.gameId);
+  if (!session) {
+    client.send({
+      type: "game:error",
+      payload: { code: "GAME_NOT_FOUND", message: `Game ${payload.gameId} not found` },
+    });
+    return;
+  }
+
+  // Route mulligan prompts (server-managed)
+  if (payload.promptId.startsWith("mulligan_")) {
+    const decision = payload.selection as "keep" | "mulligan";
+    session.handleMulliganResponse(client.clientId, decision);
+  } else if (payload.promptId.startsWith("bottom_")) {
+    const cardIds = payload.selection as string[];
+    session.handlePutOnBottom(client.clientId, cardIds);
+  } else {
+    // Engine-managed prompts — forward as makeChoice action
+    session.handleAction(client.clientId, {
+      type: "makeChoice",
+      choiceId: payload.promptId,
+      selection: payload.selection,
+    });
+  }
 }

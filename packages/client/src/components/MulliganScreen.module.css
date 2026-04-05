@@ -1,0 +1,168 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: radial-gradient(ellipse at center, #1a1a3a 0%, #0d0d1a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  max-width: 900px;
+  width: 100%;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #f0c040;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #999;
+  margin-top: -16px;
+}
+
+.opponentStatus {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+.hand {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: -20px;
+  min-height: 340px;
+  padding: 20px 40px;
+  perspective: 800px;
+}
+
+.card {
+  width: 170px;
+  height: 238px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin: 0 -12px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, margin-top 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.card:hover {
+  transform: translateY(-20px) scale(1.05) !important;
+  z-index: 100 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+
+.cardSelectable {
+  cursor: pointer;
+}
+
+.cardSelected {
+  transform: translateY(-30px) !important;
+  box-shadow: 0 0 0 3px #f06040, 0 0 16px rgba(240, 96, 64, 0.5) !important;
+}
+
+.cardImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.selectedBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f06040;
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.buttons {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.keepButton {
+  padding: 12px 32px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #2a7a3a, #1a5a2a);
+  color: #fff;
+  letter-spacing: 1px;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 4px 12px rgba(42, 122, 58, 0.4);
+}
+
+.keepButton:hover {
+  background: linear-gradient(135deg, #3a9a4a, #2a7a3a);
+  transform: translateY(-1px);
+}
+
+.mulliganButton {
+  padding: 12px 32px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #7a3a2a, #5a2a1a);
+  color: #fff;
+  letter-spacing: 1px;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 4px 12px rgba(122, 58, 42, 0.4);
+}
+
+.mulliganButton:hover {
+  background: linear-gradient(135deg, #9a4a3a, #7a3a2a);
+  transform: translateY(-1px);
+}
+
+.confirmButton {
+  padding: 12px 32px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #4060c0, #3050a0);
+  color: #fff;
+  letter-spacing: 1px;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 4px 12px rgba(64, 96, 192, 0.4);
+}
+
+.confirmButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5070d0, #4060c0);
+  transform: translateY(-1px);
+}
+
+.confirmButton:disabled {
+  background: #333;
+  color: #666;
+  cursor: default;
+  box-shadow: none;
+}

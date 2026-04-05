@@ -41,6 +41,9 @@ export {
   validateTargetsOnResolution,
 } from "./stack/targeting.js";
 
+// Copy effects
+export { copyPermanent, copySpell } from "./stack/copy.js";
+
 // Mana payment
 export { payManaCost } from "./mana/payment.js";
 
@@ -82,11 +85,27 @@ export {
   getCreatureToughness,
 } from "./combat/keywords.js";
 
+// Replacement effects
+export {
+  checkZoneChangeReplacement,
+  checkDamageReplacement,
+  checkAmountReplacement,
+  addReplacementEffect,
+  removeReplacementEffectsFromSource,
+} from "./replacement/replacement.js";
+
 // Layer system
 export { applyLayerSystem } from "./layers/layer-system.js";
 
 // Equipment
 export { attachEquipment, detachEquipment } from "./combat/equipment.js";
+
+// Planeswalker
+export {
+  canActivateLoyaltyAbility,
+  activateLoyaltyAbility,
+  dealDamageToPlayeswalker,
+} from "./planeswalker.js";
 
 // Alternative costs
 export { canCastWithFlashback, exileFlashbackSpell } from "./alternative-costs.js";

@@ -5,17 +5,36 @@
  * Manages client connections and routes messages through handlers.
  */
 
-import { createServer, type Server as HttpServer } from "node:http";
+import { createServer, type Server as HttpServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
+import { readFile } from "node:fs/promises";
+import { join, extname } from "node:path";
+import { existsSync } from "node:fs";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { handleClientMessage, type ConnectedClient } from "./handlers.js";
 import { Lobby } from "../lobby/lobby.js";
 
 let clientIdCounter = 0;
 
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html",
+  ".js": "application/javascript",
+  ".css": "text/css",
+  ".json": "application/json",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".mp3": "audio/mpeg",
+};
+
 export interface MagicFluxServerOptions {
   port?: number;
   lobby?: Lobby;
+  /** Directory to serve static files from (built client). Null to disable. */
+  staticDir?: string | null;
 }
 
 export interface MagicFluxServer {
@@ -26,11 +45,54 @@ export interface MagicFluxServer {
   stop(): Promise<void>;
 }
 
+async function serveStatic(
+  req: IncomingMessage,
+  res: ServerResponse,
+  staticDir: string,
+): Promise<void> {
+  const url = req.url ?? "/";
+  const pathname = url.split("?")[0];
+  let filePath = join(staticDir, pathname === "/" ? "index.html" : pathname);
+
+  // SPA fallback: if file doesn't exist and it's not an asset, serve index.html
+  if (!existsSync(filePath)) {
+    const ext = extname(filePath);
+    if (!ext || ext === ".html") {
+      filePath = join(staticDir, "index.html");
+    } else {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+  }
+
+  try {
+    const data = await readFile(filePath);
+    const ext = extname(filePath);
+    const contentType = MIME_TYPES[ext] ?? "application/octet-stream";
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(data);
+  } catch {
+    res.writeHead(500);
+    res.end("Internal server error");
+  }
+}
+
 export function createMagicFluxServer(
   options: MagicFluxServerOptions = {}
 ): MagicFluxServer {
   const lobby = options.lobby ?? new Lobby();
-  const httpServer = createServer();
+  const staticDir = options.staticDir ?? null;
+
+  const httpServer = createServer((req, res) => {
+    if (staticDir) {
+      serveStatic(req, res, staticDir);
+    } else {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Magic Flux server — connect via WebSocket");
+    }
+  });
+
   const wss = new WebSocketServer({ server: httpServer });
 
   wss.on("connection", (ws: WebSocket) => {

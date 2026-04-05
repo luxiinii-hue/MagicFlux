@@ -20,7 +20,7 @@ import type {
   Player,
 } from "@magic-flux/types";
 import { Phase, Step, MAX_HAND_SIZE } from "@magic-flux/types";
-import { drawCard } from "../zones/transfers.js";
+import { drawCard, moveCard as moveCardForCleanup } from "../zones/transfers.js";
 import { calculateCombatDamage, applyCombatDamage, hasFirstStrikeCreatures } from "../combat/damage.js";
 import { processStateBasedActionsLoop } from "../state-based/sba.js";
 
@@ -125,17 +125,35 @@ function cleanupStep(state: GameState): { state: GameState; events: GameEvent[] 
     (e) => e.duration !== "endOfTurn",
   );
 
-  // TODO: Discard to hand size (requires player choice prompt — Phase 2+)
-  // For Phase 1, we don't have spells so hand size shouldn't exceed 7
-
-  return {
-    state: {
-      ...state,
-      cardInstances: updatedCards,
-      continuousEffects: updatedEffects,
-    },
-    events,
+  // Discard to hand size: active player discards down to MAX_HAND_SIZE.
+  // Full implementation would prompt the player to choose which cards.
+  // For now, discard from the end of hand (last cards drawn).
+  let discardState: GameState = {
+    ...state,
+    cardInstances: updatedCards,
+    continuousEffects: updatedEffects,
   };
+
+  for (const player of discardState.players) {
+    if (player.hasLost) continue;
+    const hKey = `player:${player.id}:hand`;
+    const hand = discardState.zones[hKey];
+    if (!hand) continue;
+
+    while (hand.cardInstanceIds.length > MAX_HAND_SIZE) {
+      const currentHand = discardState.zones[hKey];
+      if (currentHand.cardInstanceIds.length <= MAX_HAND_SIZE) break;
+
+      // Discard last card in hand
+      const discardId = currentHand.cardInstanceIds[currentHand.cardInstanceIds.length - 1];
+      const gKey = `player:${player.id}:graveyard`;
+      const moveResult = moveCardForCleanup(discardState, discardId, hKey, gKey, Date.now());
+      discardState = moveResult.state;
+      events.push(...moveResult.events);
+    }
+  }
+
+  return { state: discardState, events };
 }
 
 // ---------------------------------------------------------------------------

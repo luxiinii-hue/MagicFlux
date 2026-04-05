@@ -110,7 +110,7 @@ describe("Lobby", () => {
       mockConnection("p2")
     );
 
-    session.start(42);
+    session.start(42, true);
 
     // Active games should not appear in the lobby list
     const games = lobby.listGames();

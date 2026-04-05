@@ -173,13 +173,15 @@ function resetDerivedValues(
 
   for (const [id, card] of Object.entries(updated)) {
     if (card.zone !== ZoneType.Battlefield) continue;
-    if (card.modifiedPower === null && card.modifiedToughness === null) continue;
+    if (card.basePower === null && card.baseToughness === null) continue;
 
-    // We don't have separate "base" fields, so we can't fully reset.
-    // For now, the layer system is additive — it applies modifications
-    // on top of the current modifiedPower/modifiedToughness.
-    // A full implementation would store basePower/baseToughness separately.
-    // TODO: Add basePower/baseToughness to CardInstance in types.
+    // Reset modifiedPower/modifiedToughness to base values.
+    // The layer system will then reapply all continuous effects on top.
+    updated[id] = {
+      ...card,
+      modifiedPower: card.basePower,
+      modifiedToughness: card.baseToughness,
+    };
   }
 
   return updated;
@@ -198,14 +200,173 @@ function applyEffect(
   const filter = effect.affectedFilter;
 
   switch (effect.layer) {
+    case 1:
+      return applyLayer1(state, cards, effect, mod, filter);
+    case 2:
+      return applyLayer2(state, cards, effect, mod, filter);
+    case 3:
+      return applyLayer3(state, cards, effect, mod, filter);
+    case 4:
+      return applyLayer4(state, cards, effect, mod, filter);
+    case 5:
+      return applyLayer5(state, cards, effect, mod, filter);
     case 6:
       return applyLayer6(state, cards, effect, mod, filter);
     case 7:
       return applyLayer7(state, cards, effect, mod, filter);
     default:
-      // Layers 1-5 not yet implemented
       return cards;
   }
+}
+
+/**
+ * Layer 1: Copy effects.
+ * When a permanent enters as a copy (Clone, Phantasmal Image), its copiable
+ * values are set to the original's. This is the base for all other layers.
+ * Copy effects are handled during resolution (copyPermanent in copy.ts),
+ * not during layer evaluation — by the time we get here, the copy's values
+ * are already set. This layer handles ongoing copy effects that might change
+ * what something is a copy of.
+ */
+function applyLayer1(
+  _state: GameState,
+  cards: Record<string, CardInstance>,
+  _effect: ContinuousEffect,
+  mod: Record<string, any>,
+  _filter: any,
+): Record<string, CardInstance> {
+  // Copy effects that change what a permanent is a copy of.
+  // For now, initial copy is handled by copyPermanent at resolution time.
+  // Ongoing "becomes a copy" effects would be handled here.
+  if (mod.copyOf) {
+    const targetId = mod.targetId as string;
+    const originalId = mod.copyOf as string;
+    const original = cards[originalId];
+    const target = cards[targetId];
+    if (original && target) {
+      return {
+        ...cards,
+        [targetId]: {
+          ...target,
+          cardDataId: original.cardDataId,
+          abilities: [...original.abilities],
+          modifiedPower: original.basePower,
+          modifiedToughness: original.baseToughness,
+          basePower: original.basePower,
+          baseToughness: original.baseToughness,
+          currentLoyalty: original.currentLoyalty,
+        },
+      };
+    }
+  }
+  return cards;
+}
+
+/**
+ * Layer 2: Control-changing effects.
+ * Mind Control, Treachery, Act of Treason — change who controls a permanent.
+ */
+function applyLayer2(
+  state: GameState,
+  cards: Record<string, CardInstance>,
+  effect: ContinuousEffect,
+  mod: Record<string, any>,
+  filter: any,
+): Record<string, CardInstance> {
+  if (mod.changeController) {
+    const targetId = mod.targetId as string;
+    const newControllerId = mod.newController as string;
+    const card = cards[targetId];
+    if (card && card.zone === ZoneType.Battlefield) {
+      return {
+        ...cards,
+        [targetId]: { ...card, controller: newControllerId },
+      };
+    }
+  }
+  return cards;
+}
+
+/**
+ * Layer 3: Text-changing effects.
+ * Very rare (Slight of Mind, Sleight of Mind). Changes text of cards.
+ * Stub for now — not needed for standard gameplay.
+ */
+function applyLayer3(
+  _state: GameState,
+  cards: Record<string, CardInstance>,
+  _effect: ContinuousEffect,
+  _mod: Record<string, any>,
+  _filter: any,
+): Record<string, CardInstance> {
+  return cards;
+}
+
+/**
+ * Layer 4: Type-changing effects.
+ * Blood Moon (nonbasic lands become Mountains), land animation
+ * (Mutavault becomes a creature until end of turn).
+ */
+function applyLayer4(
+  state: GameState,
+  cards: Record<string, CardInstance>,
+  effect: ContinuousEffect,
+  mod: Record<string, any>,
+  filter: any,
+): Record<string, CardInstance> {
+  const affected = findAffectedCards(state, cards, effect, filter);
+  let updated = cards;
+
+  for (const cardId of affected) {
+    const card = updated[cardId];
+    if (!card) continue;
+
+    // Animate land: give it P/T (becomes a creature)
+    if (mod.animate) {
+      const power = mod.animate.power as number ?? 0;
+      const toughness = mod.animate.toughness as number ?? 0;
+      updated = {
+        ...updated,
+        [cardId]: {
+          ...card,
+          modifiedPower: power,
+          modifiedToughness: toughness,
+          basePower: power,
+          baseToughness: toughness,
+        },
+      };
+    }
+
+    // Type overwrite: e.g., Blood Moon makes nonbasic lands into Mountains
+    if (mod.setLandType) {
+      // This would change the card's subtypes and mana production.
+      // Simplified: update cardDataId to reflect the new type.
+      updated = {
+        ...updated,
+        [cardId]: {
+          ...card,
+          cardDataId: mod.setLandType as string,
+        },
+      };
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Layer 5: Color-changing effects.
+ * Painter's Servant, Moonlace — change a permanent's colors.
+ * Rare in normal gameplay. Stub for now.
+ */
+function applyLayer5(
+  _state: GameState,
+  cards: Record<string, CardInstance>,
+  _effect: ContinuousEffect,
+  _mod: Record<string, any>,
+  _filter: any,
+): Record<string, CardInstance> {
+  return cards;
 }
 
 /**

@@ -9,8 +9,9 @@ export interface GameConnection {
   connect(): void;
   disconnect(): void;
   sendAction(gameId: string, action: PlayerAction): void;
+  sendPromptResponse?(gameId: string, promptId: string, selection: unknown): void;
   onStateUpdate(cb: (state: ClientGameState) => void): void;
-  onLegalActions(cb: (actions: readonly PlayerAction[], prompt?: string) => void): void;
+  onLegalActions(cb: (actions: readonly PlayerAction[], prompt?: string, targetRequirements?: Record<string, unknown>) => void): void;
   onEvent(cb: (event: GameEvent, message: string) => void): void;
   onPrompt(cb: (prompt: PromptData) => void): void;
   onError(cb: (code: string, message: string) => void): void;

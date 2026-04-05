@@ -1,7 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import type { LobbyConnection } from '../state/connection';
 import styles from './Lobby.module.css';
+
+interface GameListEntry {
+  readonly gameId: string;
+  readonly format: string;
+  readonly playerCount: number;
+  readonly maxPlayers: number;
+}
 
 interface LobbyProps {
   readonly connection: LobbyConnection;
@@ -16,12 +23,11 @@ const DEFAULT_DECKLIST = `4 Lightning Bolt
 4 Goblin Guide
 4 Monastery Swiftspear
 4 Eidolon of the Great Revel
-20 Mountain
+24 Mountain
 4 Searing Blaze
 4 Lava Spike
 4 Rift Bolt
-4 Skullcrack
-4 Inspiring Vantage`;
+4 Skullcrack`;
 
 export const Lobby: FC<LobbyProps> = ({
   connection,
@@ -33,6 +39,21 @@ export const Lobby: FC<LobbyProps> = ({
   const [format, setFormat] = useState('standard');
   const [deckText, setDeckText] = useState(DEFAULT_DECKLIST);
   const [joinGameId, setJoinGameId] = useState('');
+  const [activeGames, setActiveGames] = useState<GameListEntry[]>([]);
+
+  // Poll for active games when connected
+  useEffect(() => {
+    if (connectionStatus !== 'connected') return;
+
+    connection.onGameList((games) => {
+      setActiveGames([...games]);
+    });
+
+    // Fetch immediately and then every 5 seconds
+    connection.listGames();
+    const interval = setInterval(() => connection.listGames(), 5000);
+    return () => clearInterval(interval);
+  }, [connection, connectionStatus]);
 
   const parseDecklistText = (text: string) => {
     return text
@@ -111,7 +132,39 @@ export const Lobby: FC<LobbyProps> = ({
       </div>
 
       <div className={styles.panel}>
-        <div className={styles.panelTitle}>Join Game</div>
+        <div className={styles.panelTitle}>Active Games</div>
+        {activeGames.length === 0 ? (
+          <div style={{ fontSize: 13, color: '#666' }}>
+            {connectionStatus === 'connected' ? 'No games available — create one!' : 'Connect to see games'}
+          </div>
+        ) : (
+          <ul className={styles.gameList}>
+            {activeGames.map((game) => (
+              <li key={game.gameId} className={styles.gameItem}>
+                <div>
+                  <div className={styles.gameInfo}>{game.gameId}</div>
+                  <div className={styles.gameFormat}>
+                    {game.format} — {game.playerCount}/{game.maxPlayers} players
+                  </div>
+                </div>
+                <button
+                  className={styles.button}
+                  onClick={() => {
+                    const entries = parseDecklistText(deckText);
+                    connection.joinGame(game.gameId, entries);
+                  }}
+                  disabled={connectionStatus !== 'connected'}
+                >
+                  Join
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className={styles.panel}>
+        <div className={styles.panelTitle}>Join by ID</div>
         <div className={styles.field}>
           <span className={styles.label}>Game ID</span>
           <input

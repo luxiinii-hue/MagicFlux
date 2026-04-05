@@ -10,7 +10,7 @@ export function siegeRhinoOverride(): SpellAbility[] {
   return [{
     type: "triggered", id: "rhino_etb", sourceCardInstanceId: null,
     effects: [
-      { type: "loseLife", amount: 3, player: { type: "controller" } }, // "each opponent" approximated
+      { type: "custom", resolveFunction: "each_opponent_lose_life_3" },
       { type: "gainLife", amount: 3, player: { type: "controller" } },
     ],
     zones: [ZoneType.Battlefield],
@@ -215,7 +215,7 @@ export function expeditionMapOverride(): SpellAbility[] {
 export function cultivateOverride(): SpellAbility[] {
   return [{
     type: "spell", id: "cultivate_spell", sourceCardInstanceId: null,
-    effects: [{ type: "custom", resolveFunction: "cultivate" }],
+    effects: [{ type: "search", zone: ZoneType.Library, filter: { cardTypes: ["Land"], supertypes: ["Basic"] }, player: { type: "controller" }, then: { type: "custom", resolveFunction: "cultivate_two_lands" } }],
     zones: [ZoneType.Hand, ZoneType.Stack],
   }];
 }
@@ -224,7 +224,7 @@ export function cultivateOverride(): SpellAbility[] {
 export function farseekOverride(): SpellAbility[] {
   return [{
     type: "spell", id: "farseek_spell", sourceCardInstanceId: null,
-    effects: [{ type: "custom", resolveFunction: "farseek_search" }],
+    effects: [{ type: "search", zone: ZoneType.Library, filter: { subtypes: ["Plains", "Island", "Swamp", "Mountain"] }, player: { type: "controller" }, then: { type: "custom", resolveFunction: "search_put_on_battlefield_tapped" } }],
     zones: [ZoneType.Hand, ZoneType.Stack],
   }];
 }
@@ -233,7 +233,7 @@ export function farseekOverride(): SpellAbility[] {
 export function rampantGrowthOverride(): SpellAbility[] {
   return [{
     type: "spell", id: "rg_spell", sourceCardInstanceId: null,
-    effects: [{ type: "custom", resolveFunction: "rampant_growth_search" }],
+    effects: [{ type: "search", zone: ZoneType.Library, filter: { cardTypes: ["Land"], supertypes: ["Basic"] }, player: { type: "controller" }, then: { type: "custom", resolveFunction: "search_put_on_battlefield_tapped" } }],
     zones: [ZoneType.Hand, ZoneType.Stack],
   }];
 }
@@ -244,7 +244,7 @@ export function beastWithinOverride(): SpellAbility[] {
     type: "spell", id: "bw_spell", sourceCardInstanceId: null,
     effects: [
       { type: "destroy", target: { targetRequirementId: "bw_t1" } },
-      { type: "custom", resolveFunction: "beast_within_token" },
+      { type: "createToken", token: { name: "Beast", colors: ["G"], cardTypes: ["Creature"], subtypes: ["Beast"], power: 3, toughness: 3, abilities: [], keywords: [] }, count: 1, controller: { type: "targetPlayer", targetRef: { targetRequirementId: "bw_t1" } } },
     ],
     zones: [ZoneType.Hand, ZoneType.Stack],
   }];

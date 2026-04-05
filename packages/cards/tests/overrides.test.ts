@@ -1684,11 +1684,10 @@ describe("Siege Rhino override", () => {
     const triggered = override.getAbilities().find((a) => a.type === "triggered")!;
     expect(triggered.effects).toHaveLength(2);
 
-    const loseLife = triggered.effects.find((e) => e.type === "loseLife");
-    expect(loseLife).toBeDefined();
-    if (loseLife && loseLife.type === "loseLife") {
-      expect(loseLife.amount).toBe(3);
-    }
+    // "each opponent loses 3 life" can't be expressed with a single loseLife
+    // (PlayerRef has no "eachOpponent" variant), so it uses a custom handler
+    const eachOpponentEffect = triggered.effects.find((e) => e.type === "custom");
+    expect(eachOpponentEffect).toBeDefined();
 
     const gainLife = triggered.effects.find((e) => e.type === "gainLife");
     expect(gainLife).toBeDefined();

@@ -95,7 +95,7 @@ describe("Integration: two players pass priority through turns", () => {
 
     session.addPlayer("p1", "Alice", makePlainsDeck(), p1.connection);
     session.addPlayer("p2", "Bob", makePlainsDeck(), p2.connection);
-    session.start(12345);
+    session.start(12345, true);
 
     expect(session.getStatus()).toBe("active");
 
@@ -147,7 +147,7 @@ describe("Integration: two players pass priority through turns", () => {
 
     session.addPlayer("p1", "Alice", makePlainsDeck(), p1.connection);
     session.addPlayer("p2", "Bob", makePlainsDeck(), p2.connection);
-    session.start(42);
+    session.start(42, true);
 
     // Advance to main phase by passing priority
     let foundMainPhase = false;
@@ -198,7 +198,7 @@ describe("Integration: two players pass priority through turns", () => {
 
     session.addPlayer("p1", "Alice", makePlainsDeck(), p1.connection);
     session.addPlayer("p2", "Bob", makePlainsDeck(), p2.connection);
-    session.start(42);
+    session.start(42, true);
 
     // Both players should receive event messages
     const p1Events = p1.getEvents();
@@ -216,7 +216,7 @@ describe("Integration: two players pass priority through turns", () => {
 
     session.addPlayer("p1", "Alice", makePlainsDeck(), p1.connection);
     session.addPlayer("p2", "Bob", makePlainsDeck(), p2.connection);
-    session.start(42);
+    session.start(42, true);
 
     // Disconnect p1
     session.disconnectPlayer("p1");
@@ -239,7 +239,7 @@ describe("Integration: two players pass priority through turns", () => {
 
     session.addPlayer("p1", "Alice", makePlainsDeck(), p1.connection);
     session.addPlayer("p2", "Bob", makePlainsDeck(), p2.connection);
-    session.start(42);
+    session.start(42, true);
 
     // Pass through an entire turn, tracking phases
     const phases = new Set<string>();

@@ -24,6 +24,10 @@ import {
   checkTriggeredAbilities,
   advancePhase,
 } from "@magic-flux/engine";
+import { performMulligan, putCardsOnBottom } from "@magic-flux/engine";
+import { populateCardAbilities, getCardOverride, getRegisteredManaCost } from "@magic-flux/cards";
+import { canPayCost } from "@magic-flux/engine";
+import type { ManaColor } from "@magic-flux/types";
 import { filterStateForPlayer } from "./state-filter.js";
 import { formatEventLog } from "./event-log.js";
 import type {
@@ -45,7 +49,16 @@ export interface PlayerConnection {
   send(message: ServerMessage): void;
 }
 
-export type SessionStatus = "waiting" | "active" | "finished";
+export type SessionStatus = "waiting" | "mulligan" | "active" | "finished";
+
+interface MulliganState {
+  /** How many times each player has mulliganed. */
+  readonly mulliganCounts: Record<string, number>;
+  /** Players who have decided to keep. */
+  readonly keptPlayers: Set<string>;
+  /** Players who still need to put cards on bottom. */
+  readonly pendingBottomPlayers: Set<string>;
+}
 
 interface PlayerSlot {
   readonly playerId: string;
@@ -66,6 +79,7 @@ export class GameSession {
   private state: GameState | null = null;
   private readonly playerSlots: PlayerSlot[] = [];
   private status: SessionStatus = "waiting";
+  private mulliganState: MulliganState | null = null;
 
   constructor(gameId: string, format: GameFormat, maxPlayers: number) {
     this.gameId = gameId;
@@ -156,7 +170,7 @@ export class GameSession {
     );
   }
 
-  start(seed?: number): void {
+  start(seed?: number, skipMulligan = false): void {
     if (!this.canStart()) {
       throw new Error("Cannot start game: not enough players or wrong status");
     }
@@ -171,11 +185,143 @@ export class GameSession {
       seed,
     };
 
-    this.state = createGame(config);
-    this.status = "active";
+    this.state = populateCardAbilities(createGame(config));
 
-    // Run the initial game loop step (advance past untap, grant priority)
-    this.runGameLoop();
+    if (skipMulligan) {
+      this.status = "active";
+      this.runGameLoop();
+    } else {
+      this.status = "mulligan";
+      this.mulliganState = {
+        mulliganCounts: Object.fromEntries(this.playerSlots.map((s) => [s.playerId, 0])),
+        keptPlayers: new Set(),
+        pendingBottomPlayers: new Set(),
+      };
+      this.sendMulliganPrompts();
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Mulligan phase
+  // -------------------------------------------------------------------------
+
+  private sendMulliganPrompts(): void {
+    if (!this.state || !this.mulliganState) return;
+
+    for (const slot of this.playerSlots) {
+      if (!slot.connection || this.mulliganState.keptPlayers.has(slot.playerId)) continue;
+
+      // Send current hand state
+      this.sendStateToPlayer(slot.playerId);
+
+      // Send mulligan prompt
+      const count = this.mulliganState.mulliganCounts[slot.playerId] ?? 0;
+      slot.connection.send({
+        type: "game:prompt",
+        payload: {
+          promptId: `mulligan_${slot.playerId}`,
+          promptType: "chooseMode" as any, // Reuse existing union — client identifies by promptId prefix
+          description: count === 0
+            ? "Opening hand — Keep or Mulligan?"
+            : `Mulligan ${count} — Keep or Mulligan?`,
+          options: { type: "mulligan", mulliganCount: count, handSize: 7 - count },
+          minSelections: 1,
+          maxSelections: 1,
+        },
+      });
+    }
+  }
+
+  private sendBottomPrompt(playerId: string): void {
+    if (!this.state || !this.mulliganState) return;
+    const slot = this.playerSlots.find((s) => s.playerId === playerId);
+    if (!slot?.connection) return;
+
+    const count = this.mulliganState.mulliganCounts[playerId] ?? 0;
+    this.sendStateToPlayer(playerId);
+
+    slot.connection.send({
+      type: "game:prompt",
+      payload: {
+        promptId: `bottom_${playerId}`,
+        promptType: "choosePermanent" as any, // Client identifies by promptId prefix
+        description: `Choose ${count} card${count > 1 ? "s" : ""} to put on the bottom of your library`,
+        options: { type: "putOnBottom", count },
+        minSelections: count,
+        maxSelections: count,
+      },
+    });
+  }
+
+  handleMulliganResponse(playerId: string, decision: "keep" | "mulligan"): void {
+    if (this.status !== "mulligan" || !this.state || !this.mulliganState) return;
+    if (this.mulliganState.keptPlayers.has(playerId)) return;
+
+    if (decision === "mulligan") {
+      const count = (this.mulliganState.mulliganCounts[playerId] ?? 0) + 1;
+      this.mulliganState = {
+        ...this.mulliganState,
+        mulliganCounts: { ...this.mulliganState.mulliganCounts, [playerId]: count },
+      };
+
+      // Perform the mulligan
+      const result = performMulligan(this.state, playerId, count);
+      this.state = result.state;
+
+      // If they've mulliganed down to 1 card, auto-keep
+      if (7 - count <= 1) {
+        this.mulliganState.keptPlayers.add(playerId);
+        // No cards to put on bottom when at 1 card (keep all)
+        this.checkMulliganComplete();
+      } else {
+        // Send new hand and prompt again
+        this.sendMulliganPrompts();
+      }
+    } else {
+      // Keep
+      this.mulliganState.keptPlayers.add(playerId);
+      const count = this.mulliganState.mulliganCounts[playerId] ?? 0;
+
+      if (count > 0) {
+        // Need to put cards on bottom
+        this.mulliganState.pendingBottomPlayers.add(playerId);
+        this.sendBottomPrompt(playerId);
+      }
+
+      this.checkMulliganComplete();
+    }
+  }
+
+  handlePutOnBottom(playerId: string, cardIds: readonly string[]): void {
+    if (this.status !== "mulligan" || !this.state || !this.mulliganState) return;
+    if (!this.mulliganState.pendingBottomPlayers.has(playerId)) return;
+
+    const expected = this.mulliganState.mulliganCounts[playerId] ?? 0;
+    if (cardIds.length !== expected) {
+      this.sendError(playerId, "WRONG_COUNT", `Must put exactly ${expected} cards on bottom`);
+      return;
+    }
+
+    const result = putCardsOnBottom(this.state, playerId, cardIds);
+    this.state = result.state;
+    this.mulliganState.pendingBottomPlayers.delete(playerId);
+    this.checkMulliganComplete();
+  }
+
+  private checkMulliganComplete(): void {
+    if (!this.mulliganState) return;
+
+    const allKept = this.playerSlots.every((s) =>
+      this.mulliganState!.keptPlayers.has(s.playerId),
+    );
+    const noPendingBottom = this.mulliganState.pendingBottomPlayers.size === 0;
+
+    if (allKept && noPendingBottom) {
+      // Mulligan phase complete — start the game
+      this.mulliganState = null;
+      this.status = "active";
+      this.runGameLoop();
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -189,12 +335,38 @@ export class GameSession {
     }
 
     // Validate it's this player's turn to act
-    if (this.state.priorityPlayerId !== playerId && action.type !== "concede") {
+    // makeChoice doesn't require priority — it responds to a pending prompt
+    if (action.type === "makeChoice") {
+      if (!this.state.pendingPrompt || this.state.pendingPrompt.playerId !== playerId) {
+        this.sendError(playerId, "NO_PROMPT", "No pending prompt for you");
+        return;
+      }
+    } else if (this.state.priorityPlayerId !== playerId && action.type !== "concede") {
       this.sendError(playerId, "NOT_YOUR_PRIORITY", "You do not have priority");
       return;
     }
 
-    const result = executeAction(this.state, action);
+    // For castSpell actions, deduct mana cost from player's pool before
+    // forwarding to the engine. The engine doesn't have access to card cost
+    // data (it's in the cards package), so the server handles payment.
+    let stateForEngine = this.state;
+    if (action.type === "castSpell") {
+      const card = stateForEngine.cardInstances[action.cardInstanceId];
+      if (card) {
+        const cost = getRegisteredManaCost(card.cardDataId);
+        if (cost && cost.symbols.length > 0) {
+          const player = stateForEngine.players.find((p) => p.id === playerId);
+          if (player && !canPayCost(player.manaPool, cost)) {
+            this.sendError(playerId, "CANNOT_PAY", "Not enough mana to cast this spell");
+            return;
+          }
+          // Deduct mana from pool
+          stateForEngine = this.deductManaCost(stateForEngine, playerId, cost);
+        }
+      }
+    }
+
+    const result = executeAction(stateForEngine, action);
 
     if (!result.success) {
       this.sendError(playerId, result.error.code, result.error.message);
@@ -268,7 +440,28 @@ export class GameSession {
         continue;
       }
 
-      // 4. We need player input — send state and legal actions
+      // 4. Check for pending prompts (engine paused for player choice)
+      if (this.state.pendingPrompt) {
+        const prompt = this.state.pendingPrompt;
+        this.broadcastState();
+        const slot = this.playerSlots.find((s) => s.playerId === prompt.playerId);
+        if (slot?.connection) {
+          slot.connection.send({
+            type: "game:prompt",
+            payload: {
+              promptId: prompt.promptId,
+              promptType: prompt.promptType as any,
+              description: prompt.description,
+              options: prompt.options,
+              minSelections: prompt.minSelections,
+              maxSelections: prompt.maxSelections,
+            },
+          });
+        }
+        return; // Wait for player choice (makeChoice action)
+      }
+
+      // 5. We need player input — send state and legal actions
       this.broadcastState();
       this.sendLegalActionsIfPriority(this.state.priorityPlayerId);
       return; // Wait for player action
@@ -302,6 +495,19 @@ export class GameSession {
   // Broadcasting
   // -------------------------------------------------------------------------
 
+  /** Send an arbitrary message to all connected players. */
+  broadcastToAll(message: ServerMessage): void {
+    for (const slot of this.playerSlots) {
+      slot.connection?.send(message);
+    }
+  }
+
+  /** Send a message to a specific player. */
+  sendToPlayer(playerId: string, message: ServerMessage): void {
+    const slot = this.playerSlots.find((s) => s.playerId === playerId);
+    slot?.connection?.send(message);
+  }
+
   private broadcastState(): void {
     for (const slot of this.playerSlots) {
       if (slot.connection) {
@@ -315,7 +521,10 @@ export class GameSession {
     const slot = this.playerSlots.find((s) => s.playerId === playerId);
     if (!slot?.connection) return;
 
-    const clientState = filterStateForPlayer(this.state, playerId);
+    const clientState = {
+      ...filterStateForPlayer(this.state, playerId),
+      gameId: this.gameId, // Use session ID, not engine's internal ID
+    };
     const msg: StateUpdateMessage = {
       type: "game:stateUpdate",
       payload: { gameState: clientState },
@@ -329,12 +538,82 @@ export class GameSession {
     const slot = this.playerSlots.find((s) => s.playerId === playerId);
     if (!slot?.connection) return;
 
-    const actions = getLegalActions(this.state, playerId);
+    const rawActions = getLegalActions(this.state, playerId);
+    const player = this.state.players.find((p) => p.id === playerId);
+
+    // Filter castSpell actions to only affordable spells using the mana cost registry
+    const actions = rawActions.filter((action) => {
+      if (action.type !== "castSpell" || !player) return true;
+      const card = this.state.cardInstances[action.cardInstanceId];
+      if (!card) return true;
+      const cost = getRegisteredManaCost(card.cardDataId);
+      if (!cost) return true; // Unknown cost — allow through (engine may enforce)
+      return canPayCost(player.manaPool, cost);
+    });
+
+    // Build target requirements map for castSpell actions.
+    const targetRequirements: Record<string, readonly import("@magic-flux/types").TargetRequirement[]> = {};
+    for (const action of actions) {
+      if (action.type === "castSpell") {
+        const card = this.state.cardInstances[action.cardInstanceId];
+        if (card) {
+          const override = getCardOverride(card.cardDataId);
+          if (override && override.spellTargets.length > 0) {
+            targetRequirements[action.cardInstanceId] = override.spellTargets;
+          }
+        }
+      }
+    }
+
     const msg: LegalActionsMessage = {
       type: "game:legalActions",
-      payload: { actions },
+      payload: { actions, targetRequirements } as LegalActionsMessage["payload"] & { targetRequirements: typeof targetRequirements },
     };
     slot.connection.send(msg);
+  }
+
+  /**
+   * Deduct a ManaCost from a player's mana pool. Returns updated GameState.
+   * Pays colored costs first, then generic from any remaining mana.
+   */
+  private deductManaCost(
+    state: GameState,
+    playerId: string,
+    cost: import("@magic-flux/types").ManaCost,
+  ): GameState {
+    const player = state.players.find((p) => p.id === playerId);
+    if (!player) return state;
+
+    const pool = { ...player.manaPool };
+
+    // Pay colored and colorless symbols first
+    for (const sym of cost.symbols) {
+      if (sym.type === "colored") {
+        pool[sym.color] = Math.max(0, pool[sym.color] - 1);
+      } else if (sym.type === "colorless") {
+        pool.C = Math.max(0, pool.C - 1);
+      }
+      // Generic handled below
+    }
+
+    // Pay generic costs from any remaining mana
+    for (const sym of cost.symbols) {
+      if (sym.type === "generic") {
+        let remaining = sym.amount;
+        for (const color of ["C", "W", "U", "B", "R", "G"] as const) {
+          const deduct = Math.min(remaining, pool[color]);
+          pool[color] -= deduct;
+          remaining -= deduct;
+          if (remaining <= 0) break;
+        }
+      }
+    }
+
+    const updatedPlayers = state.players.map((p) =>
+      p.id === playerId ? { ...p, manaPool: pool } : p,
+    );
+
+    return { ...state, players: updatedPlayers };
   }
 
   private broadcastEvents(events: readonly GameEvent[]): void {

@@ -26,6 +26,16 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({ settings, onUpdate }) =>
       </div>
 
       <div className={styles.row}>
+        <span className={styles.label}>Auto-pass priority [F2]</span>
+        <button
+          className={toggleClass(settings.autoPassPriority)}
+          onClick={() => onUpdate({ ...settings, autoPassPriority: !settings.autoPassPriority })}
+        >
+          {settings.autoPassPriority ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
+      <div className={styles.row}>
         <span className={styles.label}>Card hover zoom</span>
         <button
           className={toggleClass(settings.cardHoverZoom)}

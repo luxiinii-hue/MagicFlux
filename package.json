@@ -11,10 +11,15 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "start": "npx tsx packages/server/src/main.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "devDependencies": {
+    "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "vitest": "^3.1.1"
   }

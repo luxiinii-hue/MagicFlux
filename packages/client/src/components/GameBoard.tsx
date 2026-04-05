@@ -15,6 +15,8 @@ interface GameBoardProps {
   readonly highlightedCards?: readonly string[];
   readonly legalActions?: readonly PlayerAction[];
   readonly onCardClick: (instanceId: string) => void;
+  readonly onPlayerClick?: (playerId: string) => void;
+  readonly targetablePlayerIds?: readonly string[];
 }
 
 function getBattlefieldCards(state: ClientGameState, playerId: string): CardInstance[] {
@@ -63,6 +65,8 @@ export const GameBoard: FC<GameBoardProps> = ({
   highlightedCards = [],
   legalActions = [],
   onCardClick,
+  onPlayerClick,
+  targetablePlayerIds = [],
 }) => {
   const viewingPlayer = gameState.players.find((p) => p.id === viewingPlayerId);
   const opponents = gameState.players.filter((p) => p.id !== viewingPlayerId);
@@ -79,6 +83,8 @@ export const GameBoard: FC<GameBoardProps> = ({
               isActive={gameState.activePlayerId === opp.id}
               hasPriority={gameState.priorityPlayerId === opp.id}
               libraryCount={getLibraryCount(gameState, opp.id)}
+              targetable={targetablePlayerIds.includes(opp.id)}
+              onClick={() => onPlayerClick?.(opp.id)}
             />
             <Hand
               cards={hand.cards}
@@ -121,6 +127,8 @@ export const GameBoard: FC<GameBoardProps> = ({
               isActive={gameState.activePlayerId === viewingPlayer.id}
               hasPriority={gameState.priorityPlayerId === viewingPlayer.id}
               libraryCount={getLibraryCount(gameState, viewingPlayer.id)}
+              targetable={targetablePlayerIds.includes(viewingPlayer.id)}
+              onClick={() => onPlayerClick?.(viewingPlayer.id)}
             />
             <Hand
               cards={hand.cards}

@@ -184,6 +184,58 @@ import {
   expeditionMapOverride, farseekOverride,
   beastWithinOverride, beastWithinTargets, dismemberOverride, dismemberTargets,
 } from "./sprint-midrange.js";
+import {
+  // Removal/Interaction
+  goForTheThroatOverride, goForTheThroatTargets,
+  condemnOverride, condemnTargets,
+  anguishedUnmakingOverride, anguishedUnmakingTargets,
+  dreadboreOverride, dreadboreTargets,
+  kolaghansCommandOverride, kolaghansCommandTargets,
+  electrolyzeOverride, electrolyzeTargets,
+  izzetCharmOverride, izzetCharmTargets,
+  lightningStrikeOverride, lightningStrikeTargets,
+  charOverride, charTargets,
+  // Creatures
+  vendilionCliqueOverride,
+  spellQuellerOverride,
+  reflectorMageOverride, reflectorMageTargets,
+  thoughtKnotSeerOverride,
+  gurmagAnglerOverride,
+  tasigurOverride,
+  kalitasOverride,
+  glorybringerOverride,
+  rekindlingPhoenixOverride,
+  questingBeastOverride,
+  polukranosOverride,
+  knightOfAutumnOverride,
+  // Enchantments/Artifacts
+  restInPeaceOverride,
+  leylineOfTheVoidOverride,
+  chaliceOfTheVoidOverride,
+  pithingNeedleOverride,
+  grafdiggersCageOverride,
+  tormodsCryptOverride, tormodsCryptTargets,
+  relicOfProgenitusOverride,
+  // Instants/Sorceries
+  abzanCharmOverride,
+  dromokasCommandOverride, dromokasCommandTargets,
+  unburialRitesOverride, unburialRitesTargets,
+  traverseTheUlvenwaldOverride,
+  // Extra staples
+  settleTheWreckageOverride,
+  councilsJudgmentOverride, councilsJudgmentTargets,
+  spellSnareOverride, spellSnareTargets,
+  dissolveOverride, dissolveTargets,
+  boneShardsOverride, boneShardsTargets,
+  searingSpearOverride, searingSpearTargets,
+  skullclampOverride,
+  thrunOverride,
+  fleecemaneLionOverride,
+  dragonlordOjutaiOverride,
+  mantisRiderOverride,
+  anafenzaOverride,
+  grimLavamancerOverride, grimLavamancerTargets,
+} from "./final-sprint.js";
 
 // ---------------------------------------------------------------------------
 // Override entry type
@@ -397,6 +449,184 @@ register("Expedition Map", expeditionMapOverride);
 register("Farseek", farseekOverride);
 register("Beast Within", beastWithinOverride, beastWithinTargets);
 register("Dismember", dismemberOverride, dismemberTargets);
+
+// Final sprint: 45 new cards to reach 200+
+// Removal/Interaction
+register("Go for the Throat", goForTheThroatOverride, goForTheThroatTargets);
+register("Condemn", condemnOverride, condemnTargets);
+register("Anguished Unmaking", anguishedUnmakingOverride, anguishedUnmakingTargets);
+register("Dreadbore", dreadboreOverride, dreadboreTargets);
+register("Kolaghan's Command", kolaghansCommandOverride, kolaghansCommandTargets);
+register("Electrolyze", electrolyzeOverride, electrolyzeTargets);
+register("Izzet Charm", izzetCharmOverride, izzetCharmTargets);
+register("Lightning Strike", lightningStrikeOverride, lightningStrikeTargets);
+register("Char", charOverride, charTargets);
+// Creatures
+register("Vendilion Clique", vendilionCliqueOverride);
+register("Spell Queller", spellQuellerOverride);
+register("Reflector Mage", reflectorMageOverride, reflectorMageTargets);
+register("Thought-Knot Seer", thoughtKnotSeerOverride);
+register("Gurmag Angler", gurmagAnglerOverride);
+register("Tasigur, the Golden Fang", tasigurOverride);
+register("Kalitas, Traitor of Ghet", kalitasOverride);
+register("Glorybringer", glorybringerOverride);
+register("Rekindling Phoenix", rekindlingPhoenixOverride);
+register("Questing Beast", questingBeastOverride);
+register("Polukranos, World Eater", polukranosOverride);
+register("Knight of Autumn", knightOfAutumnOverride);
+// Enchantments/Artifacts
+register("Rest in Peace", restInPeaceOverride);
+register("Leyline of the Void", leylineOfTheVoidOverride);
+register("Chalice of the Void", chaliceOfTheVoidOverride);
+register("Pithing Needle", pithingNeedleOverride);
+register("Grafdigger's Cage", grafdiggersCageOverride);
+register("Tormod's Crypt", tormodsCryptOverride, tormodsCryptTargets);
+register("Relic of Progenitus", relicOfProgenitusOverride);
+// Instants/Sorceries
+register("Abzan Charm", abzanCharmOverride);
+register("Dromoka's Command", dromokasCommandOverride, dromokasCommandTargets);
+register("Unburial Rites", unburialRitesOverride, unburialRitesTargets);
+register("Traverse the Ulvenwald", traverseTheUlvenwaldOverride);
+// Extra staples to reach 200
+register("Settle the Wreckage", settleTheWreckageOverride);
+register("Council's Judgment", councilsJudgmentOverride, councilsJudgmentTargets);
+register("Spell Snare", spellSnareOverride, spellSnareTargets);
+register("Dissolve", dissolveOverride, dissolveTargets);
+register("Bone Shards", boneShardsOverride, boneShardsTargets);
+register("Searing Spear", searingSpearOverride, searingSpearTargets);
+register("Skullclamp", skullclampOverride);
+register("Thrun, the Last Troll", thrunOverride);
+register("Fleecemane Lion", fleecemaneLionOverride);
+register("Dragonlord Ojutai", dragonlordOjutaiOverride);
+register("Mantis Rider", mantisRiderOverride);
+register("Anafenza, the Foremost", anafenzaOverride);
+register("Grim Lavamancer", grimLavamancerOverride, grimLavamancerTargets);
+
+// Phase 6: Modern burn
+import {
+  searingBloodOverride, searingBloodTargets, bumpInTheNightOverride, bumpInTheNightTargets,
+  shardVolleyOverride, shardVolleyTargets, flamesOfTheBloodHandOverride, flamesOfTheBloodHandTargets,
+  lightUpTheStageOverride, waywardGuideBeastOverride, roilingVortexOverride,
+  playWithFireOverride, playWithFireTargets, fieryImpulseOverride, fieryImpulseTargets,
+  wildSlashOverride, wildSlashTargets, magmaJetOverride, magmaJetTargets,
+  bonecrushGiantOverride, bonecrushGiantTargets,
+} from "./modern-burn.js";
+import {
+  sacredFoundryOverride, steamVentsOverride, overgrowlThombOverride, templeGardenOverride,
+  hallowedFountainOverride, waternGraveOverride, bloodCryptOverride, stompingGroundOverride,
+  godlessShriineOverride, breedingPoolOverride,
+  flooodedStrandOverride, pollutedDeltaOverride, bloodstainedMireOverride,
+  woodedFoothillsOverride, windsweptHeathOverride, scaldingTarnOverride,
+  verdantCatacombsOverride, aridMesaOverride, mistyRainforestOverride, marshFlatsOverride,
+  commandTowerOverride, mutavaultOverride, celestialColonnadeOverride,
+  creepingTarPitOverride, ragingRavineOverride,
+  urzasTowerOverride, urzasMineOverride, urzasPowerPlantOverride,
+} from "./modern-lands.js";
+import {
+  deathsShadowOverride, stoneforgeOverride, primevalTitanOverride, wurmcoilEngineOverride,
+  nobleHierarchOverride, birdsOfParadiseOverride, emrakulAeonsTornOverride,
+  ulamogCeaselessOverride, karnLiberatedOverride, teferiHeroOverride,
+  huntmasterOverride, arcboundRavagerOverride, goblinDarkDwellersOverride,
+  infernoTitanOverride, sunTitanOverride, graveTitanOverride,
+} from "./modern-creatures.js";
+
+// Modern Burn
+register("Searing Blood", searingBloodOverride, searingBloodTargets);
+register("Bump in the Night", bumpInTheNightOverride, bumpInTheNightTargets);
+register("Shard Volley", shardVolleyOverride, shardVolleyTargets);
+register("Flames of the Blood Hand", flamesOfTheBloodHandOverride, flamesOfTheBloodHandTargets);
+register("Light Up the Stage", lightUpTheStageOverride);
+register("Wayward Guide-Beast", waywardGuideBeastOverride);
+register("Roiling Vortex", roilingVortexOverride);
+register("Play with Fire", playWithFireOverride, playWithFireTargets);
+register("Fiery Impulse", fieryImpulseOverride, fieryImpulseTargets);
+register("Wild Slash", wildSlashOverride, wildSlashTargets);
+register("Magma Jet", magmaJetOverride, magmaJetTargets);
+register("Bonecrusher Giant", bonecrushGiantOverride, bonecrushGiantTargets);
+// Modern Lands — Shock lands
+register("Sacred Foundry", sacredFoundryOverride);
+register("Steam Vents", steamVentsOverride);
+register("Overgrown Tomb", overgrowlThombOverride);
+register("Temple Garden", templeGardenOverride);
+register("Hallowed Fountain", hallowedFountainOverride);
+register("Watery Grave", waternGraveOverride);
+register("Blood Crypt", bloodCryptOverride);
+register("Stomping Ground", stompingGroundOverride);
+register("Godless Shrine", godlessShriineOverride);
+register("Breeding Pool", breedingPoolOverride);
+// Modern Lands — Fetch lands
+register("Flooded Strand", flooodedStrandOverride);
+register("Polluted Delta", pollutedDeltaOverride);
+register("Bloodstained Mire", bloodstainedMireOverride);
+register("Wooded Foothills", woodedFoothillsOverride);
+register("Windswept Heath", windsweptHeathOverride);
+register("Scalding Tarn", scaldingTarnOverride);
+register("Verdant Catacombs", verdantCatacombsOverride);
+register("Arid Mesa", aridMesaOverride);
+register("Misty Rainforest", mistyRainforestOverride);
+register("Marsh Flats", marshFlatsOverride);
+// Modern Lands — Utility
+register("Command Tower", commandTowerOverride);
+register("Mutavault", mutavaultOverride);
+register("Celestial Colonnade", celestialColonnadeOverride);
+register("Creeping Tar Pit", creepingTarPitOverride);
+register("Raging Ravine", ragingRavineOverride);
+register("Urza's Tower", urzasTowerOverride);
+register("Urza's Mine", urzasMineOverride);
+register("Urza's Power Plant", urzasPowerPlantOverride);
+// Modern Creatures
+register("Death's Shadow", deathsShadowOverride);
+register("Stoneforge Mystic", stoneforgeOverride);
+register("Primeval Titan", primevalTitanOverride);
+register("Wurmcoil Engine", wurmcoilEngineOverride);
+register("Noble Hierarch", nobleHierarchOverride);
+register("Birds of Paradise", birdsOfParadiseOverride);
+register("Emrakul, the Aeons Torn", emrakulAeonsTornOverride);
+register("Ulamog, the Ceaseless Hunger", ulamogCeaselessOverride);
+register("Karn Liberated", karnLiberatedOverride);
+register("Teferi, Hero of Dominaria", teferiHeroOverride);
+register("Huntmaster of the Fells", huntmasterOverride);
+register("Arcbound Ravager", arcboundRavagerOverride);
+register("Goblin Dark-Dwellers", goblinDarkDwellersOverride);
+register("Inferno Titan", infernoTitanOverride);
+register("Sun Titan", sunTitanOverride);
+register("Grave Titan", graveTitanOverride);
+
+// Phase 6: Commander staples
+import {
+  cyclonicRiftOverride, cyclonicRiftTargets, demonicTutorOverride,
+  rhysticStudyOverride, mysticRemoraOverride, smotheringTitheOverride,
+  fierceGuardianshipOverride, fierceGuardianshipTargets,
+  deflectingSwatOverride, deadlyRollickOverride, deadlyRollickTargets,
+  heroicInterventionOverride, teferisProtectionOverride,
+  chaosWarpOverride, chaosWarpTargets, arcaneSignetOverride,
+  thoughtVesselOverride, swiftfootBootsOverride, swiftfootBootsTargets,
+  senseisDiviningTopOverride, manaCryptOverride,
+  atraxaOverride, edgarMarkovOverride, muldrothaOverride,
+  korvoldOverride, kenrithOverride,
+} from "./commander-staples.js";
+
+register("Cyclonic Rift", cyclonicRiftOverride, cyclonicRiftTargets);
+register("Demonic Tutor", demonicTutorOverride);
+register("Rhystic Study", rhysticStudyOverride);
+register("Mystic Remora", mysticRemoraOverride);
+register("Smothering Tithe", smotheringTitheOverride);
+register("Fierce Guardianship", fierceGuardianshipOverride, fierceGuardianshipTargets);
+register("Deflecting Swat", deflectingSwatOverride);
+register("Deadly Rollick", deadlyRollickOverride, deadlyRollickTargets);
+register("Heroic Intervention", heroicInterventionOverride);
+register("Teferi's Protection", teferisProtectionOverride);
+register("Chaos Warp", chaosWarpOverride, chaosWarpTargets);
+register("Arcane Signet", arcaneSignetOverride);
+register("Thought Vessel", thoughtVesselOverride);
+register("Swiftfoot Boots", swiftfootBootsOverride, swiftfootBootsTargets);
+register("Sensei's Divining Top", senseisDiviningTopOverride);
+register("Mana Crypt", manaCryptOverride);
+register("Atraxa, Praetors' Voice", atraxaOverride);
+register("Edgar Markov", edgarMarkovOverride);
+register("Muldrotha, the Gravetide", muldrothaOverride);
+register("Korvold, Fae-Cursed King", korvoldOverride);
+register("Kenrith, the Returned King", kenrithOverride);
 
 // ---------------------------------------------------------------------------
 // Public API

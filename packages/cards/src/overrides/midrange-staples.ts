@@ -21,7 +21,7 @@ export function siegeRhinoOverride(): SpellAbility[] {
       id: "siege_rhino_etb",
       sourceCardInstanceId: null,
       effects: [
-        { type: "loseLife", amount: 3, player: { type: "activePlayer" } },
+        { type: "custom", resolveFunction: "each_opponent_lose_life_3" },
         { type: "gainLife", amount: 3, player: { type: "controller" } },
       ],
       zones: [ZoneType.Battlefield],

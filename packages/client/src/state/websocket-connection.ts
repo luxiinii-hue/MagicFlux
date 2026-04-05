@@ -28,7 +28,7 @@ export class WebSocketConnection implements GameConnection, LobbyConnection {
 
   // Game callbacks
   private stateCallbacks: ((state: ClientGameState) => void)[] = [];
-  private legalActionsCallbacks: ((actions: readonly PlayerAction[], prompt?: string) => void)[] = [];
+  private legalActionsCallbacks: ((actions: readonly PlayerAction[], prompt?: string, targetRequirements?: Record<string, unknown>) => void)[] = [];
   private eventCallbacks: ((event: GameEvent, message: string) => void)[] = [];
   private promptCallbacks: ((prompt: PromptData) => void)[] = [];
   private errorCallbacks: ((code: string, message: string) => void)[] = [];
@@ -101,8 +101,12 @@ export class WebSocketConnection implements GameConnection, LobbyConnection {
     this.send({ type: 'game:action', payload: { gameId, action } });
   }
 
+  sendPromptResponse(gameId: string, promptId: string, selection: unknown): void {
+    this.send({ type: 'game:promptResponse', payload: { gameId, promptId, selection } });
+  }
+
   onStateUpdate(cb: (state: ClientGameState) => void): void { this.stateCallbacks.push(cb); }
-  onLegalActions(cb: (actions: readonly PlayerAction[], prompt?: string) => void): void { this.legalActionsCallbacks.push(cb); }
+  onLegalActions(cb: (actions: readonly PlayerAction[], prompt?: string, targetRequirements?: Record<string, unknown>) => void): void { this.legalActionsCallbacks.push(cb); }
   onEvent(cb: (event: GameEvent, message: string) => void): void { this.eventCallbacks.push(cb); }
   onPrompt(cb: (prompt: PromptData) => void): void { this.promptCallbacks.push(cb); }
   onError(cb: (code: string, message: string) => void): void { this.errorCallbacks.push(cb); }
@@ -173,9 +177,11 @@ export class WebSocketConnection implements GameConnection, LobbyConnection {
       case 'game:stateUpdate':
         for (const cb of this.stateCallbacks) cb(message.payload.gameState);
         break;
-      case 'game:legalActions':
-        for (const cb of this.legalActionsCallbacks) cb(message.payload.actions, message.payload.prompt);
+      case 'game:legalActions': {
+        const payload = message.payload as typeof message.payload & { targetRequirements?: Record<string, unknown> };
+        for (const cb of this.legalActionsCallbacks) cb(message.payload.actions, message.payload.prompt, payload.targetRequirements);
         break;
+      }
       case 'game:event':
         for (const cb of this.eventCallbacks) cb(message.payload.event, message.payload.logMessage);
         break;

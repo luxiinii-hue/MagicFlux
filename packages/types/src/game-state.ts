@@ -12,7 +12,7 @@ import type { Zone } from "./zones.js";
 import type { TurnState, Phase, Step } from "./turn.js";
 import type { GameEvent } from "./events.js";
 import type { StackItem } from "./stack.js";
-import type { CardFilter } from "./abilities.js";
+import type { CardFilter, ReplacementEffect } from "./abilities.js";
 
 // ---------------------------------------------------------------------------
 // GameConfig -- input to createGame
@@ -111,6 +111,41 @@ export interface ContinuousEffect {
 }
 
 // ---------------------------------------------------------------------------
+// PendingPrompt — engine paused waiting for player choice
+// ---------------------------------------------------------------------------
+
+/**
+ * When the engine encounters an effect that requires player input during
+ * resolution (search, Fact or Fiction, modal choices), it pauses and
+ * returns the state with a PendingPrompt. The server sends this to the
+ * player, who responds via makeChoice. The engine then continues.
+ */
+export interface PendingPrompt {
+  /** Unique ID for this prompt instance. */
+  readonly promptId: string;
+  /** Which player must make the choice. */
+  readonly playerId: string;
+  /** What kind of choice is needed. */
+  readonly promptType: "searchLibrary" | "chooseCard" | "chooseMode" | "orderCards" | "scry";
+  /** Human-readable description. */
+  readonly description: string;
+  /** Cards/options to choose from (instanceIds or option indices). */
+  readonly options: readonly string[];
+  /** Minimum selections required. */
+  readonly minSelections: number;
+  /** Maximum selections allowed. */
+  readonly maxSelections: number;
+  /** The stack item ID being resolved (to resume resolution). */
+  readonly sourceStackItemId: string;
+  /** Index of the effect being resolved (to resume from correct point). */
+  readonly effectIndex: number;
+  /** The remaining effects after the current one (to continue resolution). */
+  readonly remainingEffects: readonly unknown[];
+  /** Whether the chosen card must be revealed to opponents (tutor reveal). */
+  readonly reveal: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Extra turn tracking
 // ---------------------------------------------------------------------------
 
@@ -192,6 +227,8 @@ export interface GameState {
   readonly rngState: number;
   /** Active continuous effects. */
   readonly continuousEffects: readonly ContinuousEffect[];
+  /** Active replacement effects (CR 614). */
+  readonly replacementEffects: readonly ReplacementEffect[];
   /** Present only during combat phase. */
   readonly combatState: CombatState | null;
   /** Game format. */
@@ -200,6 +237,11 @@ export interface GameState {
   readonly extraTurns: readonly ExtraTurn[];
   /** Transient per-turn flags, reset at turn boundaries. */
   readonly turnFlags: TurnFlags;
+  /**
+   * Set when the engine pauses mid-resolution for player input.
+   * Null when no prompt is pending.
+   */
+  readonly pendingPrompt: PendingPrompt | null;
 }
 
 // ---------------------------------------------------------------------------

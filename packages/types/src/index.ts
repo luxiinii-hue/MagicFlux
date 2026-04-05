@@ -72,6 +72,9 @@ export type {
   CardSelector,
   CardFilter,
   Condition,
+  ReplacementEffect,
+  ReplacementAction,
+  ReplacementEffectDuration,
 } from "./abilities.js";
 
 // Events
@@ -100,6 +103,7 @@ export type {
   PlayerLostEvent,
   GameOverEvent,
   GameEvent,
+  GameEventType,
 } from "./events.js";
 
 // Player actions
@@ -143,7 +147,7 @@ export type {
   ClientHandZone,
   ClientGameState,
 } from "./game-state.js";
-export type { GameFormat } from "./game-state.js";
+export type { GameFormat, PendingPrompt } from "./game-state.js";
 
 // WebSocket message types
 export type {

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ClientGameState, PlayerAction, GameEvent } from '@magic-flux/types';
+import type { ClientGameState, PlayerAction, GameEvent, TargetRequirement } from '@magic-flux/types';
 import type { PromptData, GameConnection } from './connection';
 import type { InteractionState, InteractionAction } from '../interaction/types';
 import type { GameSettings } from './settings';
@@ -18,6 +18,7 @@ interface GameStore {
   // Server state
   gameState: ClientGameState | null;
   legalActions: PlayerAction[];
+  targetRequirements: Record<string, readonly TargetRequirement[]>;
   gameLog: LogEntry[];
   prompt: PromptData | null;
   connectionStatus: ConnectionStatus;
@@ -34,7 +35,7 @@ interface GameStore {
 
   // Server state actions
   setGameState: (state: ClientGameState) => void;
-  setLegalActions: (actions: PlayerAction[]) => void;
+  setLegalActions: (actions: PlayerAction[], targetRequirements?: Record<string, readonly TargetRequirement[]>) => void;
   addLogEntry: (event: GameEvent, message: string) => void;
   setPrompt: (prompt: PromptData | null) => void;
   setConnectionStatus: (status: ConnectionStatus) => void;
@@ -46,6 +47,7 @@ interface GameStore {
 
   // Game actions
   sendAction: (action: PlayerAction) => void;
+  sendPromptResponse: (promptId: string, selection: unknown) => void;
 
   // Settings actions
   updateSettings: (settings: GameSettings) => void;
@@ -62,6 +64,7 @@ interface GameStore {
 export const useGameStore = create<GameStore>()((set, get) => ({
   gameState: null,
   legalActions: [],
+  targetRequirements: {},
   gameLog: [],
   prompt: null,
   connectionStatus: 'disconnected',
@@ -75,7 +78,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   interactionMode: 'idle',
 
   setGameState: (gameState) => set({ gameState }),
-  setLegalActions: (legalActions) => set({ legalActions }),
+  setLegalActions: (legalActions, targetRequirements) => set({
+    legalActions,
+    targetRequirements: targetRequirements ?? {},
+  }),
   addLogEntry: (event, message) =>
     set((s) => ({ gameLog: [...s.gameLog, { event, message }] })),
   setPrompt: (prompt) => set({ prompt }),
@@ -93,6 +99,14 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const { connection, gameState } = get();
     if (connection && gameState) {
       connection.sendAction(gameState.gameId, action);
+    }
+  },
+
+  sendPromptResponse: (promptId, selection) => {
+    const { connection, gameState } = get();
+    if (connection?.sendPromptResponse && gameState) {
+      connection.sendPromptResponse(gameState.gameId, promptId, selection);
+      set({ prompt: null });
     }
   },
 

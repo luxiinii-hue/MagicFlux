@@ -12,6 +12,38 @@
   color: #bbb;
 }
 
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.autoPassButton {
+  padding: 4px 12px;
+  font-size: 11px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #2a2a44;
+  color: #888;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.autoPassButton:hover {
+  background: #333355;
+  color: #aaa;
+}
+
+.autoPassOn {
+  background: #2a4430;
+  border-color: #4a8855;
+  color: #8fc898;
+}
+
+.autoPassOn:hover {
+  background: #335538;
+}
+
 .passButton {
   padding: 6px 16px;
   font-size: 13px;

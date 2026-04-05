@@ -223,3 +223,6 @@ export type GameEvent =
   // Game ending
   | PlayerLostEvent
   | GameOverEvent;
+
+/** String literal union of all GameEvent type discriminants. */
+export type GameEventType = GameEvent["type"];

@@ -239,14 +239,30 @@ describe("Real WebSocket integration", () => {
     expect(created).toBeDefined();
     const gameId = (created as { type: "lobby:gameCreated"; payload: { gameId: string } }).payload.gameId;
 
-    // Player 2 joins — game auto-starts
+    // Player 2 joins — game enters mulligan phase
     ws2.send(JSON.stringify({
       type: "lobby:joinGame",
       payload: { gameId, decklist: makePlainsDeck() },
     }));
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 300));
 
-    // Both should have received state updates
+    // Both players should receive mulligan prompts — respond with "keep"
+    const p1Prompt = p1Msgs.find((m) => m.type === "game:prompt");
+    const p2Prompt = p2Msgs.find((m) => m.type === "game:prompt");
+    expect(p1Prompt).toBeDefined();
+    expect(p2Prompt).toBeDefined();
+
+    ws1.send(JSON.stringify({
+      type: "game:promptResponse",
+      payload: { gameId, promptId: (p1Prompt as any).payload.promptId, selection: "keep" },
+    }));
+    ws2.send(JSON.stringify({
+      type: "game:promptResponse",
+      payload: { gameId, promptId: (p2Prompt as any).payload.promptId, selection: "keep" },
+    }));
+    await new Promise((r) => setTimeout(r, 300));
+
+    // After both keep, game should be active with state updates
     const p1States = p1Msgs.filter((m) => m.type === "game:stateUpdate");
     const p2States = p2Msgs.filter((m) => m.type === "game:stateUpdate");
     expect(p1States.length).toBeGreaterThan(0);

@@ -88,6 +88,9 @@ function createCardInstance(
     abilities: [],
     modifiedPower: null,
     modifiedToughness: null,
+    basePower: null,
+    baseToughness: null,
+    isLegendary: false,
     currentLoyalty: null,
     castingChoices: null,
     linkedEffects: {},
@@ -124,6 +127,7 @@ export function createGame(config: GameConfig): GameState {
 
   for (const pc of config.players) {
     const libraryCards: string[] = [];
+    let commanderInstanceId: string | null = null;
 
     for (const entry of pc.decklist) {
       for (let i = 0; i < entry.count; i++) {
@@ -132,7 +136,33 @@ export function createGame(config: GameConfig): GameState {
           pc.id,
         );
         cardInstances[card.instanceId] = card;
-        libraryCards.push(card.instanceId);
+
+        // In Commander, the designated commander goes to the command zone
+        if (config.format === "commander" && pc.commanderId &&
+            (entry.cardDataId === pc.commanderId || entry.cardName === pc.commanderId) &&
+            !commanderInstanceId) {
+          commanderInstanceId = card.instanceId;
+          // Update card zone to CommandZone
+          cardInstances[card.instanceId] = {
+            ...card,
+            zone: "CommandZone" as any,
+            zoneOwnerId: null,
+          };
+          zones["commandZone"] = {
+            ...zones["commandZone"],
+            cardInstanceIds: [...zones["commandZone"].cardInstanceIds, card.instanceId],
+          };
+        } else {
+          libraryCards.push(card.instanceId);
+        }
+      }
+    }
+
+    // Set commander ID on player
+    if (commanderInstanceId) {
+      const playerIdx = players.findIndex((p) => p.id === pc.id);
+      if (playerIdx >= 0) {
+        players[playerIdx] = { ...players[playerIdx], commanderId: commanderInstanceId };
       }
     }
 
@@ -180,6 +210,8 @@ export function createGame(config: GameConfig): GameState {
     pendingEvents: [],
     rngState,
     continuousEffects: [],
+    replacementEffects: [],
+    pendingPrompt: null,
     combatState: null,
     format: config.format,
     extraTurns: [],

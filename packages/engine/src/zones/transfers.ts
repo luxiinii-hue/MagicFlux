@@ -14,6 +14,7 @@ import type {
   CardInstance,
   GameEvent,
 } from "@magic-flux/types";
+import { checkZoneChangeReplacement } from "../replacement/replacement.js";
 
 // ---------------------------------------------------------------------------
 // Zone key helpers
@@ -102,6 +103,13 @@ export function moveCard(
   toZoneKey: string,
   eventTimestamp: number,
 ): { state: GameState; events: GameEvent[] } {
+  // Check replacement effects (e.g., "exile instead of graveyard")
+  if (state.replacementEffects && state.replacementEffects.length > 0) {
+    const replacement = checkZoneChangeReplacement(state, instanceId, fromZoneKey, toZoneKey);
+    if (replacement) {
+      toZoneKey = replacement.replacedToZone;
+    }
+  }
   const fromZone = state.zones[fromZoneKey];
   const toZone = state.zones[toZoneKey];
   if (!fromZone || !toZone) {

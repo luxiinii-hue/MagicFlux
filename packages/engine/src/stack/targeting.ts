@@ -60,6 +60,16 @@ function isTargetLegal(
     return false;
   }
 
+  // Shroud: can't be targeted by spells or abilities at all
+  if (cardHasKeyword(card, "shroud")) {
+    return false;
+  }
+
+  // Protection (simplified for now, ideally would check protection from specific colors/types)
+  if (cardHasKeyword(card, "protection")) {
+    return false;
+  }
+
   return true;
 }
 

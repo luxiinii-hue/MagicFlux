@@ -237,6 +237,12 @@ export interface CardInstance {
   readonly modifiedPower: number | null;
   /** Current toughness after all modifications. Null for non-creatures. */
   readonly modifiedToughness: number | null;
+  /** Base power as set during instantiation (from CardData). Null for non-creatures. */
+  readonly basePower: number | null;
+  /** Base toughness as set during instantiation (from CardData). Null for non-creatures. */
+  readonly baseToughness: number | null;
+  /** Whether this permanent has the Legendary supertype. Used by Legend Rule SBA. */
+  readonly isLegendary: boolean;
   /** Current loyalty for planeswalkers. Null otherwise. */
   readonly currentLoyalty: number | null;
   /** Choices made when this spell was cast. Null if not cast (e.g., tokens). */

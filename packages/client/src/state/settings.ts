@@ -1,11 +1,13 @@
 export interface GameSettings {
   autoPayMana: boolean;
+  autoPassPriority: boolean;
   cardHoverZoom: boolean;
   animationSpeed: 'normal' | 'fast' | 'off';
 }
 
 const DEFAULTS: GameSettings = {
   autoPayMana: true,
+  autoPassPriority: false,
   cardHoverZoom: true,
   animationSpeed: 'normal',
 };

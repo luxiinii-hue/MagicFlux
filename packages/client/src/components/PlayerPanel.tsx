@@ -9,6 +9,8 @@ interface PlayerPanelProps {
   readonly isActive: boolean;
   readonly hasPriority: boolean;
   readonly libraryCount: number;
+  readonly targetable?: boolean;
+  readonly onClick?: () => void;
 }
 
 export const PlayerPanel: FC<PlayerPanelProps> = ({
@@ -16,17 +18,20 @@ export const PlayerPanel: FC<PlayerPanelProps> = ({
   isActive,
   hasPriority,
   libraryCount,
+  targetable = false,
+  onClick,
 }) => {
   const classNames = [
     styles.panel,
     isActive ? styles.active : '',
     hasPriority ? styles.hasPriority : '',
+    targetable ? styles.targetable : '',
   ].filter(Boolean).join(' ');
 
   const isCritical = player.life <= 5;
 
   return (
-    <div className={classNames}>
+    <div className={classNames} onClick={targetable ? onClick : undefined} role={targetable ? 'button' : undefined}>
       <span className={styles.name}>{player.name}</span>
       <div className={styles.lifeDisplay}>
         <LifeIcon size={14} critical={isCritical} />

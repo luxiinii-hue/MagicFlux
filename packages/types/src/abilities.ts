@@ -8,6 +8,7 @@
 import type { ManaColor, ManaCost, ManaPool } from "./mana.js";
 import type { ZoneType } from "./zones.js";
 import type { TokenDefinition, CardTypeName } from "./card.js";
+import type { GameEventType } from "./events.js";
 
 // ---------------------------------------------------------------------------
 // AbilityType discriminant
@@ -310,6 +311,47 @@ export interface ContinuousEffectDefinition {
   readonly effectType: string;
   readonly affectedFilter: CardFilter;
   readonly modification: Readonly<Record<string, unknown>>;
+}
+
+// ---------------------------------------------------------------------------
+// ReplacementEffect — CR 614 "instead" semantics
+// ---------------------------------------------------------------------------
+
+/** How long a replacement effect lasts. */
+export type ReplacementEffectDuration =
+  | "whileSourceOnBattlefield"
+  | "endOfTurn"
+  | "permanent";
+
+/**
+ * What a replacement effect does instead of the original event.
+ * Discriminated union on `type`.
+ */
+export type ReplacementAction =
+  | { readonly type: "changeZone"; readonly fromZone: ZoneType; readonly toZone: ZoneType }
+  | { readonly type: "preventDamage"; readonly amount: NumberOrExpression }
+  | { readonly type: "modifyAmount"; readonly multiplier?: number; readonly addition?: number }
+  | { readonly type: "addEffect"; readonly effect: Effect }
+  | { readonly type: "custom"; readonly resolveFunction: string };
+
+/**
+ * A replacement effect per MTG Comprehensive Rules 614.
+ *
+ * Replacement effects modify an event as it happens ("instead" semantics).
+ * They are checked before the event occurs and, if matched, the replacement
+ * is applied in place of the original event. Each replacement can only
+ * apply once per event (CR 614.5) unless appliedOnce is false.
+ */
+export interface ReplacementEffect {
+  readonly id: string;
+  readonly sourceCardInstanceId: string;
+  readonly eventType: GameEventType | readonly GameEventType[];
+  readonly filter: CardFilter | null;
+  readonly replacementAction: ReplacementAction;
+  readonly condition: Condition | null;
+  readonly self: boolean;
+  readonly duration: ReplacementEffectDuration;
+  readonly appliedOnce: boolean;
 }
 
 // ---------------------------------------------------------------------------

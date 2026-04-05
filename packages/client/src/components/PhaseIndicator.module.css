@@ -39,8 +39,49 @@
   font-weight: bold;
 }
 
-.step {
-  font-size: 10px;
-  color: #aaa;
-  text-align: center;
+/* Step sub-track within the active phase */
+.stepTrack {
+  display: flex;
+  gap: 1px;
+  background: #1e1e38;
+  border-radius: 4px;
+  padding: 3px 2px;
+}
+
+.stepItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 2px;
+  font-size: 8px;
+  color: #555577;
+  transition: color 0.2s;
+}
+
+.stepActive {
+  color: #f0c040;
+  font-weight: bold;
+}
+
+.stepPast {
+  color: #667788;
+}
+
+.stepDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #333355;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.stepActive .stepDot {
+  background: #f0c040;
+  box-shadow: 0 0 6px rgba(240, 192, 64, 0.5);
+}
+
+.stepPast .stepDot {
+  background: #556677;
 }

@@ -144,6 +144,137 @@ export function processStateBasedActions(state: GameState): SBAResult {
     changed = true;
   }
 
+  // SBA: Planeswalker with 0 or fewer loyalty counters → owner's graveyard
+  for (const [instanceId, card] of Object.entries(newState.cardInstances)) {
+    if (card.zone !== ZoneType.Battlefield) continue;
+    if (card.currentLoyalty === null) continue;
+    if (card.currentLoyalty <= 0) {
+      const moveResult = moveCard(
+        newState, instanceId, "battlefield", graveyardKey(card.owner), Date.now(),
+      );
+      newState = moveResult.state;
+      events.push(...moveResult.events);
+      events.push({
+        type: "cardDestroyed",
+        cardInstanceId: instanceId,
+        timestamp: Date.now(),
+      });
+      changed = true;
+    }
+  }
+
+  // SBA: Legend Rule (CR 704.5j) — if a player controls 2+ legendary permanents
+  // with the same name, they choose one to keep, rest go to graveyard.
+  // Simplified: keep the one with the lowest instanceId (deterministic).
+  const legendariesByController: Record<string, Record<string, string[]>> = {};
+  for (const [instanceId, card] of Object.entries(newState.cardInstances)) {
+    if (card.zone !== ZoneType.Battlefield) continue;
+    if (!card.isLegendary) continue;
+
+    const key = `${card.controller}:${card.cardDataId}`;
+    if (!legendariesByController[key]) {
+      legendariesByController[key] = {};
+    }
+    if (!legendariesByController[key][card.cardDataId]) {
+      legendariesByController[key][card.cardDataId] = [];
+    }
+    legendariesByController[key][card.cardDataId].push(instanceId);
+  }
+
+  for (const [_key, nameMap] of Object.entries(legendariesByController)) {
+    for (const [_name, ids] of Object.entries(nameMap)) {
+      if (ids.length <= 1) continue;
+      // Keep the first (lowest ID), sacrifice the rest
+      const toRemove = ids.slice(1);
+      for (const instanceId of toRemove) {
+        const card = newState.cardInstances[instanceId];
+        if (!card || card.zone !== ZoneType.Battlefield) continue;
+        const result = moveCard(
+          newState, instanceId, "battlefield", graveyardKey(card.owner), Date.now(),
+        );
+        newState = result.state;
+        events.push(...result.events);
+        events.push({
+          type: "cardDestroyed",
+          cardInstanceId: instanceId,
+          timestamp: Date.now(),
+        });
+        changed = true;
+      }
+    }
+  }
+
+  // SBA: Aura/Equipment attachment legality (CR 704.5m/n)
+  // If an Aura is attached to an illegal object or not attached to anything
+  // while on the battlefield, it goes to its owner's graveyard.
+  for (const [instanceId, card] of Object.entries(newState.cardInstances)) {
+    if (card.zone !== ZoneType.Battlefield) continue;
+    if (card.attachedTo === null) continue;
+
+    // Check if the attached-to card still exists on the battlefield
+    const attachedTo = newState.cardInstances[card.attachedTo];
+    if (!attachedTo || attachedTo.zone !== ZoneType.Battlefield) {
+      // Attachment target gone — unattach. For Auras, send to graveyard.
+      // For Equipment, just unattach (stays on battlefield).
+      const isAura = card.abilities.some(
+        (a) => a.type === "static" && a.continuousEffect?.effectType === "enchant",
+      );
+      if (isAura) {
+        const result = moveCard(
+          newState, instanceId, "battlefield", graveyardKey(card.owner), Date.now(),
+        );
+        newState = result.state;
+        events.push(...result.events);
+        changed = true;
+      } else {
+        // Equipment: just detach
+        newState = {
+          ...newState,
+          cardInstances: {
+            ...newState.cardInstances,
+            [instanceId]: { ...card, attachedTo: null },
+          },
+        };
+      }
+    }
+  }
+
+  // SBA: +1/+1 and -1/-1 counter annihilation (CR 704.5q)
+  // If a permanent has both +1/+1 and -1/-1 counters, remove pairs until
+  // only one type remains.
+  for (const [instanceId, card] of Object.entries(newState.cardInstances)) {
+    if (card.zone !== ZoneType.Battlefield) continue;
+    const plusCounters = card.counters["+1/+1"] ?? 0;
+    const minusCounters = card.counters["-1/-1"] ?? 0;
+    if (plusCounters > 0 && minusCounters > 0) {
+      const toRemove = Math.min(plusCounters, minusCounters);
+      const newPlus = plusCounters - toRemove;
+      const newMinus = minusCounters - toRemove;
+      const updatedCounters = { ...card.counters };
+      if (newPlus > 0) {
+        updatedCounters["+1/+1"] = newPlus;
+      } else {
+        delete updatedCounters["+1/+1"];
+      }
+      if (newMinus > 0) {
+        updatedCounters["-1/-1"] = newMinus;
+      } else {
+        delete updatedCounters["-1/-1"];
+      }
+      // Also adjust P/T
+      const ptDelta = -toRemove; // Removing +1/+1 counters reduces P/T (net effect)
+      // Actually: removing N +1/+1 and N -1/-1 has net zero P/T impact
+      newState = {
+        ...newState,
+        cardInstances: {
+          ...newState.cardInstances,
+          [instanceId]: { ...newState.cardInstances[instanceId], counters: updatedCounters },
+        },
+      };
+      changed = true;
+    }
+  }
+
   // Check for game over
   const remainingPlayers = updatedPlayers.filter((p) => !p.hasLost);
   newState = { ...newState, players: updatedPlayers };

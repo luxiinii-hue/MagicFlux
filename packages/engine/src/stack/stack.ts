@@ -18,6 +18,24 @@ import { validateTargetsOnResolution } from "./targeting.js";
 import { moveCard, graveyardKey } from "../zones/transfers.js";
 import { grantPriority } from "../turn/priority.js";
 
+/**
+ * Determine if a card instance represents a permanent spell by examining
+ * its abilities. Permanents have abilities that function on the battlefield
+ * (activated, triggered, static, mana). Non-permanents (instant/sorcery)
+ * typically have only a single "spell" ability.
+ */
+function isPermanentByAbilities(card: CardInstance): boolean {
+  // If the card has any battlefield-relevant abilities, it's a permanent
+  for (const ability of card.abilities) {
+    if (ability.type === "activated" || ability.type === "triggered" ||
+        ability.type === "static" || ability.type === "mana") {
+      return true;
+    }
+  }
+  // Cards with only "spell" type abilities are instants/sorceries
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Push to stack
 // ---------------------------------------------------------------------------
@@ -121,21 +139,40 @@ export function resolveTopOfStack(
   // Remove from stack
   newState = removeFromStack(newState, topItemId);
 
-  // If this was a spell, move the card to graveyard (or exile for flashback)
+  // If this was a spell, handle the card after resolution
   if (item.isSpell && !item.isCopy) {
     const card = newState.cardInstances[item.sourceCardInstanceId];
     if (card && card.zone === ZoneType.Stack) {
+      // Determine if this is a permanent spell (creature, enchantment, artifact,
+      // planeswalker, land) or a non-permanent spell (instant, sorcery).
+      // Permanent spells enter the battlefield; non-permanents go to graveyard.
+      const isPermanentSpell = isPermanentByAbilities(card);
       const isFlashback = item.choices?.alternativeCostUsed === "flashback";
-      const destination = isFlashback ? "exile" : graveyardKey(card.owner);
-      const moveResult = moveCard(
-        newState,
-        item.sourceCardInstanceId,
-        "stack",
-        destination,
-        Date.now(),
-      );
-      newState = moveResult.state;
-      allEvents.push(...moveResult.events);
+
+      if (isPermanentSpell && !isFlashback) {
+        // Permanent spell → enters battlefield
+        const moveResult = moveCard(
+          newState,
+          item.sourceCardInstanceId,
+          "stack",
+          "battlefield",
+          Date.now(),
+        );
+        newState = moveResult.state;
+        allEvents.push(...moveResult.events);
+      } else {
+        // Non-permanent spell → graveyard (or exile for flashback)
+        const destination = isFlashback ? "exile" : graveyardKey(card.owner);
+        const moveResult = moveCard(
+          newState,
+          item.sourceCardInstanceId,
+          "stack",
+          destination,
+          Date.now(),
+        );
+        newState = moveResult.state;
+        allEvents.push(...moveResult.events);
+      }
     }
   }
 

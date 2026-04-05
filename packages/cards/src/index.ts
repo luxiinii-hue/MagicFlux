@@ -42,6 +42,12 @@ export {
   generateKeywordAbilities,
 } from "./keywords/index.js";
 
+// Ability population (called by server after engine.createGame)
+export { populateCardAbilities } from "./registry/populate-abilities.js";
+
+// Mana cost registry (called by server for casting enforcement)
+export { getRegisteredManaCost } from "./registry/mana-cost-registry.js";
+
 // Types re-exported for convenience
 export type { CardQuery } from "./registry/card-registry.js";
 export type { CardOverrideEntry } from "./overrides/index.js";
