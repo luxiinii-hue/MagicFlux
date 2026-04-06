@@ -373,7 +373,11 @@ export class GameSession {
       return;
     }
 
-    this.state = result.state;
+    // Store events in pendingEvents so the game loop's trigger check can see them
+    this.state = {
+      ...result.state,
+      pendingEvents: [...(result.state.pendingEvents ?? []), ...result.events],
+    };
     this.broadcastEvents(result.events);
 
     // Continue the game loop
@@ -412,17 +416,25 @@ export class GameSession {
         this.state.pendingEvents
       );
       if (triggers.length > 0) {
-        // Add triggers to the stack
+        // Add triggers to the stack and emit events
         let newState = this.state;
+        const triggerEvents: GameEvent[] = [];
         for (const trigger of triggers) {
           newState = {
             ...newState,
             stack: [trigger.id, ...newState.stack],
             stackItems: { ...newState.stackItems, [trigger.id]: trigger },
           };
+          triggerEvents.push({
+            type: "abilityTriggered",
+            cardInstanceId: trigger.sourceCardInstanceId,
+            abilityId: trigger.ability.id,
+            timestamp: Date.now(),
+          } as GameEvent);
         }
         // Clear pending events
         this.state = { ...newState, pendingEvents: [] };
+        this.broadcastEvents(triggerEvents);
         continue; // Re-check SBAs
       }
 
@@ -435,7 +447,10 @@ export class GameSession {
       if (this.state.priorityPlayerId === null) {
         // No priority (untap, cleanup) — advance phase
         const result = advancePhase(this.state);
-        this.state = result.state;
+        this.state = {
+          ...result.state,
+          pendingEvents: [...(result.state.pendingEvents ?? []), ...result.events],
+        };
         this.broadcastEvents(result.events);
         continue;
       }
@@ -481,6 +496,10 @@ export class GameSession {
       result = processStateBasedActions(this.state);
       this.state = result.state;
       if (result.events.length > 0) {
+        this.state = {
+          ...this.state,
+          pendingEvents: [...(this.state.pendingEvents ?? []), ...result.events],
+        };
         this.broadcastEvents(result.events);
       }
       if (result.actionsPerformed) {

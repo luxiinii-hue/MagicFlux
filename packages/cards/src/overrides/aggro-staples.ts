@@ -65,9 +65,8 @@ export function eidolonOfTheGreatRevelOverride(): SpellAbility[] {
       id: `${slug}_trigger`,
       sourceCardInstanceId: null,
       effects: [{
-        type: "dealDamage",
-        amount: 2,
-        to: { targetRequirementId: `${slug}_caster` },
+        type: "custom",
+        resolveFunction: "eidolon_damage_caster",
       }],
       zones: [ZoneType.Battlefield],
       triggerCondition: {

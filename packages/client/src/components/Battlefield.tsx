@@ -9,6 +9,9 @@ interface BattlefieldProps {
   readonly selectedCards: readonly string[];
   readonly highlightedCards?: readonly string[];
   readonly targetableCards?: readonly string[];
+  readonly attackingCards?: readonly string[];
+  readonly blockingCards?: readonly string[];
+  readonly pendingBlockerId?: string | null;
   readonly onCardClick: (instanceId: string) => void;
 }
 
@@ -18,6 +21,9 @@ export const Battlefield: FC<BattlefieldProps> = ({
   selectedCards,
   highlightedCards = [],
   targetableCards = [],
+  attackingCards = [],
+  blockingCards = [],
+  pendingBlockerId = null,
   onCardClick,
 }) => {
   return (
@@ -26,6 +32,9 @@ export const Battlefield: FC<BattlefieldProps> = ({
         {cards.map((card) => {
           const data = cardDataMap[card.cardDataId];
           if (!data) return null;
+          const isAttacking = attackingCards.includes(card.instanceId);
+          const isBlocking = blockingCards.includes(card.instanceId);
+          const isPendingBlocker = card.instanceId === pendingBlockerId;
           return (
             <CardView
               key={card.instanceId}
@@ -34,6 +43,8 @@ export const Battlefield: FC<BattlefieldProps> = ({
               selected={selectedCards.includes(card.instanceId)}
               highlighted={highlightedCards.includes(card.instanceId)}
               targetable={targetableCards.includes(card.instanceId)}
+              attacking={isAttacking}
+              eligible={isPendingBlocker}
               onClick={() => onCardClick(card.instanceId)}
             />
           );

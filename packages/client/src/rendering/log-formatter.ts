@@ -61,12 +61,16 @@ export function formatLogEntry(
   };
 
   switch (event.type) {
-    case 'turnBegan':
+    case 'turnBegan': {
+      // Show per-player turn number: turn 1&2 are "Turn 1" for each player, 3&4 are "Turn 2", etc.
+      const playerCount = state?.players.length ?? 2;
+      const playerTurnNumber = Math.ceil(event.turnNumber / playerCount);
       return {
-        message: `— Turn ${event.turnNumber} (${playerName(event.activePlayerId)}) —`,
+        message: `— ${playerName(event.activePlayerId)}'s Turn ${playerTurnNumber} —`,
         category: 'phase',
         timestamp: event.timestamp,
       };
+    }
 
     case 'lifeChanged':
       return {
@@ -75,9 +79,38 @@ export function formatLogEntry(
         timestamp: event.timestamp,
       };
 
-    case 'spellCast':
+    case 'spellCast': {
+      // Look up targets from the stack item
+      let targetText = '';
+      if (state) {
+        for (const stackId of state.stack) {
+          const item = state.stackItems[stackId];
+          if (item?.sourceCardInstanceId === event.cardInstanceId && item.targets?.length > 0) {
+            const targetNames = item.targets.map((t) =>
+              t.targetType === 'player' ? playerName(t.targetId) : cardName(t.targetId)
+            );
+            targetText = ` targeting ${targetNames.join(', ')}`;
+            break;
+          }
+        }
+      }
       return {
-        message: `${playerName(event.playerId)} casts ${cardName(event.cardInstanceId)}`,
+        message: `${playerName(event.playerId)} casts ${cardName(event.cardInstanceId)}${targetText}`,
+        category: 'spell',
+        timestamp: event.timestamp,
+      };
+    }
+
+    case 'abilityTriggered':
+      return {
+        message: `  ⚡ ${cardName((event as any).cardInstanceId)} triggers`,
+        category: 'spell',
+        timestamp: event.timestamp,
+      };
+
+    case 'abilityActivated':
+      return {
+        message: `${playerName((event as any).playerId)} activates ${cardName((event as any).cardInstanceId)}`,
         category: 'spell',
         timestamp: event.timestamp,
       };

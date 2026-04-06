@@ -20,6 +20,7 @@ import { WaitingScene } from './components/WaitingScene';
 import { PromptOverlay } from './components/PromptOverlay';
 import { CombatPanel } from './components/CombatPanel';
 import { TargetingOverlay } from './components/TargetingOverlay';
+import { TriggerToast } from './components/TriggerToast';
 import { isPlayableLand, isCastableCard } from './interaction/targeting';
 import type { CardInstance, ClientGameState, TargetRequirement } from '@magic-flux/types';
 
@@ -192,8 +193,17 @@ export const App: FC = () => {
     const hasDeclareBlockersAction = legalActions.some((a) => a.type === 'declareBlockers');
 
     if (hasDeclareAttackersAction && !combatHandledRef.current.attackers) {
+      // Only show attackers panel if we have creatures that can attack
+      const hasAttackableCreatures = Object.values(gameState.cardInstances).some((c) =>
+        c.controller === viewingPlayerId && c.zone === 'Battlefield' && !c.tapped &&
+        (c.modifiedPower !== null || c.basePower !== null)
+      );
+
       combatHandledRef.current.attackers = true;
-      dispatchInteraction({ type: 'ENTER_DECLARE_ATTACKERS' });
+      if (hasAttackableCreatures) {
+        dispatchInteraction({ type: 'ENTER_DECLARE_ATTACKERS' });
+      }
+      // No creatures to attack with — auto-pass will handle it
     } else if (hasDeclareBlockersAction && !combatHandledRef.current.blockers) {
       // Only show blockers panel if there are attackers AND we have creatures to block with
       const hasAttackers = gameState.combatState &&
@@ -532,14 +542,21 @@ export const App: FC = () => {
               cardDataMap={cardDataMap}
               viewingPlayerId={viewingPlayerId}
               selectedCards={selectedCards}
-              highlightedCards={[
-                ...targetableCardIds,
-                ...(interaction.mode === 'declareAttackers' ? interaction.selectedAttackerIds : []),
-              ]}
+              highlightedCards={targetableCardIds}
               onCardClick={handleCardClick}
               onPlayerClick={handlePlayerClick}
               targetablePlayerIds={castingCardId && currentReq?.targetTypes.includes('player' as any) ? gameState.players.map(p => p.id) : []}
               targetableCardIds={targetableCardIds}
+              attackingCardIds={[
+                ...(interaction.mode === 'declareAttackers' ? interaction.selectedAttackerIds : []),
+                ...(gameState.combatState ? Object.keys(gameState.combatState.attackers) : []),
+              ]}
+              blockingCardIds={
+                interaction.mode === 'declareBlockers'
+                  ? Object.keys(interaction.blockerAssignments)
+                  : (gameState.combatState ? Object.keys(gameState.combatState.blockers) : [])
+              }
+              pendingBlockerId={interaction.mode === 'declareBlockers' ? interaction.pendingBlockerId : null}
               legalActions={legalActions}
             />
           </div>
@@ -548,7 +565,7 @@ export const App: FC = () => {
             <PhaseIndicator
               phase={gameState.turnState.phase}
               step={gameState.turnState.step}
-              turnNumber={gameState.turnNumber}
+              turnNumber={Math.ceil(gameState.turnNumber / gameState.players.length)}
               activePlayerName={activePlayer?.name ?? 'Unknown'}
             />
             <StackDisplay
@@ -556,6 +573,7 @@ export const App: FC = () => {
               cardDataMap={cardDataMap}
               instanceToCardDataId={instanceToCardDataId}
               playerNames={playerNames}
+              gameState={gameState}
             />
             <div className={styles.logHeader}>
               <span>Game Log</span>
@@ -599,19 +617,22 @@ export const App: FC = () => {
           <CombatPanel
             mode={interaction.mode}
             gameState={gameState}
+            cardDataMap={cardDataMap}
             viewingPlayerId={viewingPlayerId}
             selectedAttackerIds={interaction.mode === 'declareAttackers' ? interaction.selectedAttackerIds : []}
             blockerAssignments={interaction.mode === 'declareBlockers' ? interaction.blockerAssignments : {}}
+            pendingBlockerId={interaction.mode === 'declareBlockers' ? interaction.pendingBlockerId : null}
             onConfirmAttackers={handleConfirmAttackers}
             onConfirmBlockers={handleConfirmBlockers}
             onCancel={() => {
               dispatchInteraction({ type: 'CANCEL' });
-              sendAction({ type: 'passPriority' }); // Skip combat
+              sendAction({ type: 'passPriority' });
             }}
           />
         )}
 
         <AnimationOverlay />
+        <TriggerToast gameLog={gameLog} gameState={gameState} cardDataMap={cardDataMap} />
         <CardHover enabled={settings.cardHoverZoom} />
         {prompt && !prompt.promptId.startsWith('mulligan_') && !prompt.promptId.startsWith('bottom_') && (
           <PromptOverlay

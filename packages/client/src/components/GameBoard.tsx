@@ -18,6 +18,9 @@ interface GameBoardProps {
   readonly onPlayerClick?: (playerId: string) => void;
   readonly targetablePlayerIds?: readonly string[];
   readonly targetableCardIds?: readonly string[];
+  readonly attackingCardIds?: readonly string[];
+  readonly blockingCardIds?: readonly string[];
+  readonly pendingBlockerId?: string | null;
 }
 
 function getBattlefieldCards(state: ClientGameState, playerId: string): CardInstance[] {
@@ -69,6 +72,9 @@ export const GameBoard: FC<GameBoardProps> = ({
   onPlayerClick,
   targetablePlayerIds = [],
   targetableCardIds = [],
+  attackingCardIds = [],
+  blockingCardIds = [],
+  pendingBlockerId = null,
 }) => {
   const viewingPlayer = gameState.players.find((p) => p.id === viewingPlayerId);
   const opponents = gameState.players.filter((p) => p.id !== viewingPlayerId);
@@ -103,6 +109,9 @@ export const GameBoard: FC<GameBoardProps> = ({
                 selectedCards={selectedCards}
                 highlightedCards={highlightedCards}
                 targetableCards={targetableCardIds}
+                attackingCards={attackingCardIds}
+                blockingCards={blockingCardIds}
+                pendingBlockerId={pendingBlockerId}
                 onCardClick={onCardClick}
               />
             </div>
@@ -123,6 +132,9 @@ export const GameBoard: FC<GameBoardProps> = ({
                 selectedCards={selectedCards}
                 highlightedCards={highlightedCards}
                 targetableCards={targetableCardIds}
+                attackingCards={attackingCardIds}
+                blockingCards={blockingCardIds}
+                pendingBlockerId={pendingBlockerId}
                 onCardClick={onCardClick}
               />
             </div>

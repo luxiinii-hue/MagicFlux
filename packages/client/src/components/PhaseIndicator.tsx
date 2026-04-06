@@ -49,7 +49,7 @@ export const PhaseIndicator: FC<PhaseIndicatorProps> = ({
   return (
     <div className={styles.indicator}>
       <div className={styles.header}>
-        Turn {turnNumber} — {activePlayerName}
+        {activePlayerName}'s Turn {turnNumber}
       </div>
       <div className={styles.track}>
         {PHASE_LABELS.map(({ phase: p, label }) => {
