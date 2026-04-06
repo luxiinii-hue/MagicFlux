@@ -27,6 +27,10 @@ interface TargetingOverlayProps {
   readonly selectedTargets: readonly ResolvedTarget[];
   /** Visual intensity setting */
   readonly visualMode: 'full' | 'subtle' | 'off';
+  /** Whether there are any valid targets for the current requirement */
+  readonly hasValidTargets: boolean;
+  /** Cancel callback */
+  readonly onCancel: () => void;
 }
 
 export const TargetingOverlay: FC<TargetingOverlayProps> = ({
@@ -36,6 +40,8 @@ export const TargetingOverlay: FC<TargetingOverlayProps> = ({
   currentReqIndex,
   selectedTargets,
   visualMode,
+  hasValidTargets,
+  onCancel,
 }) => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -93,7 +99,17 @@ export const TargetingOverlay: FC<TargetingOverlayProps> = ({
             <span className={styles.bannerCount}> ({currentReqIndex + 1}/{totalReqs})</span>
           )}
         </div>
+        <button className={styles.cancelButton} onClick={onCancel}>
+          Cancel
+        </button>
       </div>
+
+      {/* No valid targets warning */}
+      {!hasValidTargets && (
+        <div className={styles.noTargets}>
+          No valid targets — press Cancel or Escape
+        </div>
+      )}
 
       {/* Selected targets display */}
       {selectedTargets.length > 0 && (

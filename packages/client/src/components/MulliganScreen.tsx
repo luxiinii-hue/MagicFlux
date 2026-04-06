@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FC } from 'react';
 import type { CardData, CardInstance } from '@magic-flux/types';
 import { getCardImageUrl } from '../rendering/card-images';
+import { showCardHover, hideCardHover } from './CardHover';
 import styles from './MulliganScreen.module.css';
 
 interface MulliganScreenProps {
@@ -88,6 +89,9 @@ export const MulliganScreen: FC<MulliganScreenProps> = ({
                   zIndex: i,
                 }}
                 onClick={phase === 'putOnBottom' ? () => toggleCardForBottom(card.instanceId) : undefined}
+                onMouseEnter={(e) => { if (cardData) showCardHover(cardData, e.clientX, e.clientY); }}
+                onMouseMove={(e) => { if (cardData) showCardHover(cardData, e.clientX, e.clientY); }}
+                onMouseLeave={() => hideCardHover()}
               >
                 <img
                   className={styles.cardImage}

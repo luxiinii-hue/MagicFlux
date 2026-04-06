@@ -65,7 +65,7 @@ export const CombatPanel: FC<CombatPanelProps> = ({
           Cancel
         </button>
         <button className={styles.confirmButton} onClick={onConfirmBlockers}>
-          {blockerCount === 0 ? 'Take Damage' : 'Confirm Blocks'}
+          {blockerCount === 0 ? 'No Blocks' : 'Confirm Blocks'}
         </button>
       </div>
     </div>

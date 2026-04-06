@@ -1,0 +1,601 @@
+/* ============================================================
+   Planeswalker's Tavern — True 8-bit Lofi Scene
+   
+   Using a fixed aspect ratio container that scales up to 
+   enforce perfect, chunky pixels and pure 8-bit aesthetics.
+   ============================================================ */
+
+.scene {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* 
+  The 640x360 internal resolution ensures everything 
+  built inside behaves like a crisp retro pixel game. 
+*/
+.pixelCanvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* Transform scale is injected dynamically via React */
+  transform-origin: center center;
+  width: 640px;
+  height: 360px;
+  background: #1e1826;
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+
+/* CRT Scanlines Overlay */
+.crtOverlay {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    transparent 0px,
+    transparent 1px,
+    rgba(0, 0, 0, 0.15) 1px,
+    rgba(0, 0, 0, 0.15) 2px
+  );
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* =========================================
+   ARCHITECTURE (Wall, Counter, Desk)
+   ========================================= */
+
+.wall {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 640px;
+  height: 200px;
+  background: #1e1826;
+  z-index: 0;
+}
+
+.counterTop {
+  position: absolute;
+  top: 200px;
+  left: 0;
+  width: 640px;
+  height: 24px;
+  background: #3a2832;
+  border-bottom: 4px solid #23161d;
+  border-top: 2px solid #523641;
+  z-index: 10;
+}
+
+.counterFront {
+  position: absolute;
+  top: 224px;
+  left: 0;
+  width: 640px;
+  height: 136px;
+  background: #261a20;
+  z-index: 9;
+}
+
+/* =========================================
+   WINDOW & WEATHER
+   ========================================= */
+
+.window {
+  position: absolute;
+  top: 24px;
+  left: 80px;
+  width: 480px;
+  height: 140px;
+  background: #0b0914;
+  border: 6px solid #120e15;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.windowDividerH {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  background: #120e15;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.windowDividerV1, .windowDividerV2 {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 6px;
+  background: #120e15;
+  z-index: 2;
+}
+.windowDividerV1 { left: 33%; }
+.windowDividerV2 { left: 66%; }
+
+.moon {
+  position: absolute;
+  top: 16px;
+  right: 64px;
+  width: 32px;
+  height: 32px;
+  background: #f4f4f4;
+  box-shadow: 
+    0 0 0 4px rgba(244,244,244,0.3),
+    0 0 0 8px rgba(244,244,244,0.1);
+  z-index: 1;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  animation: twinkle 3s steps(2) infinite;
+}
+.star1 { top: 20px; left: 40px; animation-delay: 0s; }
+.star2 { top: 40px; left: 120px; animation-delay: 1s; }
+.star3 { top: 100px; left: 80px; animation-delay: 0.5s; }
+.star4 { top: 30px; left: 240px; animation-delay: 1.5s; }
+.star5 { top: 80px; left: 360px; animation-delay: 0.8s; }
+.star6 { top: 110px; left: 420px; animation-delay: 2s; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.rainDrop {
+  position: absolute;
+  width: 2px;
+  height: 16px;
+  background: #4b778d;
+  animation: rainFall 0.4s linear infinite;
+  z-index: 1;
+}
+@keyframes rainFall {
+  0% { transform: translateY(-20px); opacity: 1; }
+  100% { transform: translateY(160px); opacity: 0; }
+}
+
+/* =========================================
+   SHELVES & LANTERN
+   ========================================= */
+
+.shelf {
+  position: absolute;
+  top: 80px;
+  left: 24px;
+  width: 48px;
+  height: 4px;
+  background: #3a2832;
+  border-bottom: 2px solid #23161d;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-evenly;
+}
+
+.potion {
+  position: relative;
+  width: 10px;
+  height: 14px;
+  border: 2px solid #120e15;
+  border-bottom: none;
+}
+.potion::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 2px;
+  width: 2px;
+  height: 4px;
+  border: 2px solid #120e15;
+  background: #fff;
+}
+.pRed { background: #e53935; }
+.pBlue { background: #1e88e5; height: 10px; }
+.pGreen { background: #43a047; }
+
+.lantern {
+  position: absolute;
+  top: 0;
+  left: 180px;
+  z-index: 8;
+}
+.lanternChain {
+  position: absolute;
+  left: 10px;
+  width: 2px;
+  height: 32px;
+  background: repeating-linear-gradient(#555 0px, #555 4px, transparent 4px, transparent 8px);
+}
+.lanternBody {
+  position: absolute;
+  top: 32px;
+  left: 2px;
+  width: 18px;
+  height: 24px;
+  background: #fbc02d;
+  border: 2px solid #120e15;
+}
+.lanternGlow {
+  position: absolute;
+  top: 40px;
+  left: 11px;
+  width: 0;
+  height: 0;
+  box-shadow: 
+    0 0 0 24px rgba(251,192,45,0.15),
+    0 0 0 48px rgba(251,192,45,0.08),
+    0 0 0 72px rgba(251,192,45,0.04);
+  animation: flicker 4s steps(2) infinite;
+  z-index: -1;
+}
+
+/* =========================================
+   THE WIZARD
+   ========================================= */
+
+.wizard {
+  position: absolute;
+  top: 86px;
+  left: 280px;
+  width: 80px;
+  height: 114px;
+  z-index: 5;
+  animation: wizardBreathe 4s steps(4) infinite;
+}
+@keyframes wizardBreathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.wizardRobe {
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  width: 56px;
+  height: 48px;
+  background: #1a237e;
+  border: 2px solid #120e15;
+  border-bottom: none;
+}
+.wizardRobeDetail {
+  position: absolute;
+  top: 0;
+  left: 16px;
+  width: 20px;
+  height: 48px;
+  background: #283593;
+}
+
+.wizardHead {
+  position: absolute;
+  top: 36px;
+  left: 24px;
+  width: 32px;
+  height: 30px;
+  background: #ffb088;
+  border: 2px solid #120e15;
+}
+.wizardEyeL, .wizardEyeR {
+  position: absolute;
+  top: 10px;
+  width: 4px;
+  height: 4px;
+  background: #120e15;
+  animation: blink 6s steps(1) infinite;
+}
+.wizardEyeL { left: 6px; }
+.wizardEyeR { right: 6px; }
+
+@keyframes blink { 
+  0%, 96%, 100% { height: 4px; top: 10px; } 
+  98% { height: 2px; top: 12px; } 
+}
+
+.wizardBeard {
+  position: absolute;
+  bottom: -16px;
+  left: -2px;
+  width: 36px;
+  height: 16px;
+  background: #e0e0e0;
+  border: 2px solid #120e15;
+  border-top: none;
+}
+.wizardBeard::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 8px;
+  width: 16px;
+  height: 8px;
+  background: #e0e0e0;
+  border: 2px solid #120e15;
+  border-top: none;
+}
+
+.wizardHat {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 80px;
+  height: 40px;
+}
+.hatL1 { position: absolute; bottom: 0; left: 0; width: 80px; height: 8px; background: #283593; border: 2px solid #120e15; }
+.hatL2 { position: absolute; bottom: 8px; left: 16px; width: 48px; height: 10px; background: #283593; border: 2px solid #120e15; border-bottom: none; }
+.hatL3 { position: absolute; bottom: 18px; left: 28px; width: 24px; height: 10px; background: #283593; border: 2px solid #120e15; border-bottom: none; }
+.hatL4 { position: absolute; bottom: 28px; left: 34px; width: 12px; height: 10px; background: #283593; border: 2px solid #120e15; border-bottom: none; }
+.hatBand {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  width: 72px;
+  height: 4px;
+  background: #ffb300;
+}
+
+.wizardArmL, .wizardArmR {
+  position: absolute;
+  bottom: -12px;
+  width: 20px;
+  height: 24px;
+  background: #1a237e;
+  border: 2px solid #120e15;
+  z-index: 12;
+}
+.wizardArmL { left: 4px; }
+.wizardArmR { right: 4px; }
+
+.wizardHandL, .wizardHandR {
+  position: absolute;
+  bottom: -6px;
+  width: 12px;
+  height: 8px;
+  background: #ffb088;
+  border: 2px solid #120e15;
+}
+.wizardHandL { left: 2px; }
+.wizardHandR { right: 2px; }
+
+/* =========================================
+   DESK ITEMS 
+   ========================================= */
+
+.mug {
+  position: absolute;
+  top: 186px;
+  left: 200px;
+  z-index: 11;
+}
+.mugBody {
+  position: absolute;
+  width: 16px;
+  height: 18px;
+  background: #ff77a8;
+  border: 2px solid #120e15;
+}
+.mugHandle {
+  position: absolute;
+  top: 4px;
+  left: -6px;
+  width: 6px;
+  height: 10px;
+  border: 2px solid #120e15;
+  border-right: none;
+}
+.steam {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #fff;
+  opacity: 0.6;
+  animation: steamRise 2.5s steps(4) infinite;
+}
+.steam1 { left: 2px; animation-delay: 0s; }
+.steam2 { left: 8px; animation-delay: 1.2s; }
+
+@keyframes steamRise {
+  0% { transform: translateY(0); opacity: 0.8; }
+  100% { transform: translateY(-30px); opacity: 0; }
+}
+
+.orb {
+  position: absolute;
+  top: 174px;
+  left: 420px;
+  z-index: 11;
+}
+.orbCore {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: #00e5ff;
+  border: 2px solid #120e15;
+  box-shadow: 
+    0 0 0 6px rgba(0,229,255,0.4),
+    0 0 0 12px rgba(0,229,255,0.2),
+    0 0 0 18px rgba(0,229,255,0.1);
+  animation: orbPulse 2s steps(2) infinite;
+}
+@keyframes orbPulse {
+  0%, 100% { box-shadow: 0 0 0 6px rgba(0,229,255,0.4), 0 0 0 12px rgba(0,229,255,0.2), 0 0 0 18px rgba(0,229,255,0.1); }
+  50% { box-shadow: 0 0 0 8px rgba(0,229,255,0.4), 0 0 0 14px rgba(0,229,255,0.2), 0 0 0 20px rgba(0,229,255,0.1); }
+}
+
+.cards {
+  position: absolute;
+  top: 190px;
+  left: 360px;
+  z-index: 11;
+  display: flex;
+  gap: 2px;
+}
+.card {
+  width: 12px;
+  height: 16px;
+  background: #fff;
+  border: 2px solid #120e15;
+  position: relative;
+}
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: #1a237e;
+}
+.card1 { transform: translateY(2px); }
+.card2 { transform: translateY(-1px); }
+.card3 { transform: translateY(1px); }
+.card3::after { background: #e53935; }
+
+/* =========================================
+   THE CAT
+   ========================================= */
+
+.cat {
+  position: absolute;
+  top: 184px;
+  left: 500px;
+  z-index: 11;
+  animation: catBreathe 3s steps(2) infinite;
+}
+@keyframes catBreathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+.catBody {
+  position: absolute;
+  width: 36px;
+  height: 16px;
+  background: #ff7e67;
+  border: 2px solid #120e15;
+  border-bottom: none;
+}
+.catBodyTop {
+  position: absolute;
+  top: -6px;
+  left: 6px;
+  width: 24px;
+  height: 6px;
+  background: #ff7e67;
+  border: 2px solid #120e15;
+  border-bottom: none;
+}
+.catHead {
+  position: absolute;
+  top: -4px;
+  left: -8px;
+  width: 16px;
+  height: 14px;
+  background: #ff7e67;
+  border: 2px solid #120e15;
+}
+.catEarL, .catEarR {
+  position: absolute;
+  top: -6px;
+  width: 6px;
+  height: 6px;
+  background: #ff7e67;
+  border: 2px solid #120e15;
+  border-bottom: none;
+}
+.catEarL { left: -2px; }
+.catEarR { right: -2px; }
+
+.catZzz {
+  position: absolute;
+  top: -16px;
+  left: 8px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  animation: zzz 3s steps(3) infinite;
+}
+.catZzz2 {
+  position: absolute;
+  top: -16px;
+  left: 8px;
+  color: #fff;
+  font-size: 8px;
+  font-weight: bold;
+  animation: zzz 3s steps(3) infinite;
+  animation-delay: 1.5s;
+}
+@keyframes zzz {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 1; }
+  100% { transform: translate(12px, -24px) scale(1.5); opacity: 0; }
+}
+
+/* =========================================
+   UI & EFFECTS 
+   ========================================= */
+
+.neonSign {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 8;
+  text-align: right;
+}
+.neonText {
+  color: #ff0044;
+  font-size: 16px;
+  font-weight: bold;
+  text-shadow: 0 0 4px #ff0044, 0 0 8px #ff0044;
+  animation: neonFlicker 5s steps(1) infinite;
+}
+@keyframes neonFlicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% { opacity: 1; }
+  20%, 24%, 55% { opacity: 0.5; }
+}
+
+.manaParticle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #fff;
+  z-index: 15;
+  animation: manaFloat 6s linear infinite;
+}
+.m1 { left: 150px; background: #00e5ff; animation-delay: 0s; }
+.m2 { left: 300px; background: #ff0044; animation-delay: 2s; }
+.m3 { left: 450px; background: #00ffcc; animation-delay: 4s; }
+.m4 { left: 550px; background: #fbc02d; animation-delay: 1s; }
+.m5 { left: 200px; background: #aa00ff; animation-delay: 3s; }
+
+@keyframes manaFloat {
+  0% { transform: translateY(360px); opacity: 0; }
+  20% { opacity: 0.8; }
+  80% { opacity: 0.8; }
+  100% { transform: translateY(-20px); opacity: 0; }
+}
+
+/* ---- RESTORED MESSAGE ---- */
+.message {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  text-align: center;
+  background: rgba(10, 10, 25, 0.75);
+  padding: 12px 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 160, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+.msgText { font-family: 'Courier New', Courier, monospace; font-size: 16px; color: #aaccff; text-shadow: 0 0 8px rgba(100,160,255,0.4); letter-spacing: 1px; }
+.dots span { font-family: 'Courier New', Courier, monospace; font-size: 16px; color: #aaccff; animation: dotBounce 1.5s ease-in-out infinite; }
+@keyframes dotBounce { 0%, 60%, 100% { opacity: 0; } 30% { opacity: 1; } }

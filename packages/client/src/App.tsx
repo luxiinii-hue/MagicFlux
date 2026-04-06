@@ -16,6 +16,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { Lobby } from './components/Lobby';
 import { CardHover } from './components/CardHover';
 import { MulliganScreen } from './components/MulliganScreen';
+import { WaitingScene } from './components/WaitingScene';
 import { PromptOverlay } from './components/PromptOverlay';
 import { CombatPanel } from './components/CombatPanel';
 import { TargetingOverlay } from './components/TargetingOverlay';
@@ -170,17 +171,45 @@ export const App: FC = () => {
     setScreen('game');
   }, []);
 
-  // Auto-enter combat modes when the engine sends declareAttackers/declareBlockers actions
-  useEffect(() => {
-    const hasDeclareAttackers = legalActions.some((a) => a.type === 'declareAttackers');
-    const hasDeclareBlockers = legalActions.some((a) => a.type === 'declareBlockers');
+  // Track whether we've already handled combat this turn (prevent double-entry)
+  const combatHandledRef = useRef<{ attackers: boolean; blockers: boolean }>({ attackers: false, blockers: false });
 
-    if (hasDeclareAttackers && interaction.mode === 'idle') {
-      dispatchInteraction({ type: 'ENTER_DECLARE_ATTACKERS' });
-    } else if (hasDeclareBlockers && interaction.mode === 'idle') {
-      dispatchInteraction({ type: 'ENTER_DECLARE_BLOCKERS' });
+  // Reset combat tracking when turn changes
+  useEffect(() => {
+    if (gameState) {
+      const { phase } = gameState.turnState;
+      if (phase !== 'Combat') {
+        combatHandledRef.current = { attackers: false, blockers: false };
+      }
     }
-  }, [legalActions, interaction.mode, dispatchInteraction]);
+  }, [gameState?.turnState.phase]);
+
+  // Auto-enter combat modes — only once per combat phase
+  useEffect(() => {
+    if (!gameState || interaction.mode !== 'idle') return;
+
+    const hasDeclareAttackersAction = legalActions.some((a) => a.type === 'declareAttackers');
+    const hasDeclareBlockersAction = legalActions.some((a) => a.type === 'declareBlockers');
+
+    if (hasDeclareAttackersAction && !combatHandledRef.current.attackers) {
+      combatHandledRef.current.attackers = true;
+      dispatchInteraction({ type: 'ENTER_DECLARE_ATTACKERS' });
+    } else if (hasDeclareBlockersAction && !combatHandledRef.current.blockers) {
+      // Only show blockers panel if there are attackers AND we have creatures to block with
+      const hasAttackers = gameState.combatState &&
+        Object.keys(gameState.combatState.attackers ?? {}).length > 0;
+      const hasOurCreatures = Object.values(gameState.cardInstances).some((c) =>
+        c.controller === viewingPlayerId && c.zone === 'Battlefield' && !c.tapped &&
+        (c.modifiedPower !== null || c.basePower !== null)
+      );
+
+      combatHandledRef.current.blockers = true;
+      if (hasAttackers && hasOurCreatures) {
+        dispatchInteraction({ type: 'ENTER_DECLARE_BLOCKERS' });
+      }
+      // If no attackers or no creatures to block with, skip — auto-pass will handle it
+    }
+  }, [legalActions, interaction.mode, gameState, dispatchInteraction]);
 
   // Keyboard shortcuts: Escape cancels interaction, F2 toggles auto-pass
   useEffect(() => {
@@ -253,24 +282,35 @@ export const App: FC = () => {
     const mulliganCardDataMap = buildCardDataMap(gameState.cardInstances, MOCK_CARD_DATA_MAP);
 
     return (
-      <MulliganScreen
-        cards={handCards}
-        cardDataMap={mulliganCardDataMap}
-        mulliganCount={mulliganCount}
-        phase={isMulliganPrompt ? 'decide' : 'putOnBottom'}
-        putOnBottomCount={putOnBottomCount}
-        opponentStatus="Waiting for opponent..."
-        onKeep={() => {
-          useGameStore.getState().sendPromptResponse(prompt!.promptId, 'keep');
-        }}
-        onMulligan={() => {
-          useGameStore.getState().sendPromptResponse(prompt!.promptId, 'mulligan');
-        }}
-        onPutOnBottom={(cardIds) => {
-          useGameStore.getState().sendPromptResponse(prompt!.promptId, cardIds);
-        }}
-      />
+      <>
+        <MulliganScreen
+          cards={handCards}
+          cardDataMap={mulliganCardDataMap}
+          mulliganCount={mulliganCount}
+          phase={isMulliganPrompt ? 'decide' : 'putOnBottom'}
+          putOnBottomCount={putOnBottomCount}
+          opponentStatus="Waiting for opponent..."
+          onKeep={() => {
+            useGameStore.getState().sendPromptResponse(prompt!.promptId, 'keep');
+          }}
+          onMulligan={() => {
+            useGameStore.getState().sendPromptResponse(prompt!.promptId, 'mulligan');
+          }}
+          onPutOnBottom={(cardIds) => {
+            useGameStore.getState().sendPromptResponse(prompt!.promptId, cardIds);
+          }}
+        />
+        <CardHover enabled={settings.cardHoverZoom} />
+      </>
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Waiting for opponent (mulligan done, game not started yet)
+  // ---------------------------------------------------------------------------
+
+  if (!prompt && !gameState.priorityPlayerId && !gameState.gameOver) {
+    return <WaitingScene message="Waiting for opponent to finish mulliganing" />;
   }
 
   const activePlayer = gameState.players.find((p) => p.id === gameState.activePlayerId);
@@ -526,7 +566,7 @@ export const App: FC = () => {
                 {showLog ? 'Hide' : 'Show'}
               </button>
             </div>
-            {showLog && <GameLog entries={gameLog} />}
+            {showLog && <GameLog entries={gameLog} gameState={gameState} cardDataMap={cardDataMap} />}
           </div>
         </div>
 
@@ -550,6 +590,8 @@ export const App: FC = () => {
             currentReqIndex={castingReqIndex}
             selectedTargets={selectedTargets}
             visualMode={settings.targetingVisuals}
+            hasValidTargets={targetableCardIds.length > 0 || (currentReq?.targetTypes.includes('player' as any) ?? false)}
+            onCancel={() => { setCastingCardId(null); setSelectedTargets([]); }}
           />
         )}
 

@@ -125,32 +125,50 @@ function cleanupStep(state: GameState): { state: GameState; events: GameEvent[] 
     (e) => e.duration !== "endOfTurn",
   );
 
-  // Discard to hand size: active player discards down to MAX_HAND_SIZE.
-  // Full implementation would prompt the player to choose which cards.
-  // For now, discard from the end of hand (last cards drawn).
+  // Discard to hand size: each player with hand > MAX_HAND_SIZE must discard
+  // down. Uses PendingPrompt to let the player choose which cards to discard.
+  // Active player discards first (APNAP order).
   let discardState: GameState = {
     ...state,
     cardInstances: updatedCards,
     continuousEffects: updatedEffects,
   };
 
-  for (const player of discardState.players) {
+  // Check each player in turn order (active player first)
+  const playersInOrder = [
+    ...discardState.players.filter((p) => p.id === discardState.activePlayerId),
+    ...discardState.players.filter((p) => p.id !== discardState.activePlayerId),
+  ];
+
+  for (const player of playersInOrder) {
     if (player.hasLost) continue;
     const hKey = `player:${player.id}:hand`;
     const hand = discardState.zones[hKey];
-    if (!hand) continue;
+    if (!hand || hand.cardInstanceIds.length <= MAX_HAND_SIZE) continue;
 
-    while (hand.cardInstanceIds.length > MAX_HAND_SIZE) {
-      const currentHand = discardState.zones[hKey];
-      if (currentHand.cardInstanceIds.length <= MAX_HAND_SIZE) break;
+    const discardCount = hand.cardInstanceIds.length - MAX_HAND_SIZE;
 
-      // Discard last card in hand
-      const discardId = currentHand.cardInstanceIds[currentHand.cardInstanceIds.length - 1];
-      const gKey = `player:${player.id}:graveyard`;
-      const moveResult = moveCardForCleanup(discardState, discardId, hKey, gKey, Date.now());
-      discardState = moveResult.state;
-      events.push(...moveResult.events);
-    }
+    // Create a PendingPrompt for this player to choose what to discard
+    discardState = {
+      ...discardState,
+      pendingPrompt: {
+        promptId: `discard_hand_size_${Date.now()}`,
+        playerId: player.id,
+        promptType: "chooseCard",
+        description: `Discard ${discardCount} card(s) to hand size (${MAX_HAND_SIZE})`,
+        options: [...hand.cardInstanceIds],
+        minSelections: discardCount,
+        maxSelections: discardCount,
+        sourceStackItemId: "",
+        effectIndex: 0,
+        remainingEffects: [],
+        reveal: false,
+      },
+      // Grant priority during cleanup when a prompt fires (per MTG rules)
+      priorityPlayerId: player.id,
+    };
+    // Only one player can have a prompt at a time — server handles sequential
+    break;
   }
 
   return { state: discardState, events };

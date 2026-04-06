@@ -58,6 +58,46 @@
   color: #aa8866;
 }
 
+.cancelButton {
+  margin-left: 12px;
+  padding: 4px 14px;
+  font-size: 11px;
+  border: 1px solid #664444;
+  border-radius: 4px;
+  cursor: pointer;
+  background: rgba(100, 40, 30, 0.6);
+  color: #cc8877;
+  pointer-events: auto;
+  transition: background 0.15s;
+}
+
+.cancelButton:hover {
+  background: rgba(140, 50, 35, 0.8);
+  color: #ffaa99;
+}
+
+.noTargets {
+  position: fixed;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 250;
+  padding: 8px 20px;
+  background: rgba(100, 30, 20, 0.9);
+  border: 1px solid #884444;
+  border-radius: 6px;
+  color: #ff8866;
+  font-size: 13px;
+  font-weight: bold;
+  pointer-events: none;
+  animation: noTargetsPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes noTargetsPulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
 /* Selected targets list — bottom left */
 .selectedList {
   position: fixed;

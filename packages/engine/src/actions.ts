@@ -613,18 +613,22 @@ function handleMakeChoice(
     }
   }
 
-  if (prompt.promptType === "chooseCard" && (prompt as any).discardFromPlayerId) {
-    // Hand-reveal-choose response (Thoughtseize, Duress, Inquisition)
+  if (prompt.promptType === "chooseCard") {
     const selections = Array.isArray(action.selection)
       ? action.selection as string[]
       : action.selection ? [action.selection as string] : [];
-    const opponentId = (prompt as any).discardFromPlayerId as string;
-    const hKey = `player:${opponentId}:hand`;
+
+    // Determine whose hand to discard from:
+    // - Thoughtseize/Duress: opponent's hand (discardFromPlayerId set)
+    // - Discard to hand size: own hand (discardFromPlayerId not set)
+    const discardPlayerId = (prompt as any).discardFromPlayerId as string | undefined
+      ?? prompt.playerId;
+    const hKey = `player:${discardPlayerId}:hand`;
 
     for (const cardId of selections) {
       const hand = newState.zones[hKey];
       if (!hand || !hand.cardInstanceIds.includes(cardId)) continue;
-      const gKey = `player:${opponentId}:graveyard`;
+      const gKey = `player:${discardPlayerId}:graveyard`;
       const moveResult = moveCard(newState, cardId, hKey, gKey, Date.now());
       newState = moveResult.state;
       events.push(...moveResult.events);

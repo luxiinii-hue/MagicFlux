@@ -47,8 +47,9 @@ export function shouldAutoPass(
       return false;
     }
 
-    // Declare attackers
-    if (config.stopAtAttackers && phase === Phase.Combat && step === Step.DeclareAttackers) {
+    // Declare attackers (only stop if haven't declared yet this combat)
+    if (config.stopAtAttackers && phase === Phase.Combat && step === Step.DeclareAttackers
+        && !gameState.turnState.hasDeclaredAttackers) {
       return false;
     }
 
@@ -78,8 +79,9 @@ export function shouldAutoPass(
     return true;
   }
 
-  // Declare blockers
-  if (config.stopAtBlockers && phase === Phase.Combat && step === Step.DeclareBlockers) {
+  // Declare blockers (only stop if haven't declared yet this combat)
+  if (config.stopAtBlockers && phase === Phase.Combat && step === Step.DeclareBlockers
+      && !gameState.turnState.hasDeclaredBlockers) {
     const hasBlockAction = meaningfulActions.some((a) => a.type === 'declareBlockers');
     if (hasBlockAction) return false;
   }
